@@ -9,22 +9,57 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r carga}
+# Cargar paquetes necesarios
+library(ggplot2)
+library(ggfortify)
+library(dplyr)
+library(tidyr)
+library(factoextra)
+library(readxl)
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r lectura_df}
+#Leer datos del .xlsx
+df = read_excel("Data_Cortex_Nuclear.xlsx")
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r faltantes}
+# 1. Análisis de valores faltantes
+missing_by_variable <- colSums(is.na(df))  # Valores faltantes por variable
+missing_by_individual <- rowSums(is.na(df)) # Valores faltantes por individuo
+
+# Resumen de valores faltantes
+print("Valores faltantes por variable:")
+print(missing_by_variable)
+print("Valores faltantes por individuo:")
+print(missing_by_individual)
+
+```
+
+```{r analisis_variacion}
+# 2. Análisis de variación por variable
+variation_by_variable <- apply(df[, sapply(df, is.numeric)], 2, var, na.rm = TRUE)
+print("Variación por variable:")
+print(variation_by_variable)
+
+```
+
+
+```{r PCA}
+# 3. Análisis PCA
+numeric_df <- df[, sapply(df, is.numeric)]  # Seleccionar solo columnas numéricas
+numeric_df <- na.omit(numeric_df)  # Eliminar filas con valores faltantes
+
+pca_result <- prcomp(numeric_df, center = TRUE, scale. = TRUE)  # Realizar PCA
+
+# Gráfico de cargas (loadings plot)
+fviz_pca_var(pca_result, col.var = "cos2", gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), repel = TRUE)
+
+```
+
+
+
+
+
