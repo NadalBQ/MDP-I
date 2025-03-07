@@ -1,0 +1,105 @@
+---
+title: "mdp_recod_imput"
+author: "Chenyao"
+date: "`r Sys.Date()`"
+output: word_document
+---
+
+```{r Librerías}
+library(openxlsx)
+library(dplyr)
+library(mice)
+```
+
+```{r Recodificación}
+
+ratones = read.xlsx("Data_Cortex_Nuclear.xlsx", sheet=1)
+
+ratones <- ratones %>%
+  rename(
+    "Genotipo" = Genotype,
+    "Tratamiento" = Treatment,
+    "Comportamiento" = Behavior,
+    "Clase" = class
+  )
+
+colnames(ratones)
+
+colEncodings <- list(
+  "Genotipo" = c("Control" = 0, "Ts65Dn" = 1),
+  "Tratamiento" = c("Saline" = 0, "Memantine" = 1),
+  "Comportamiento" = c("S/C" = 0, "C/S" = 1)
+)
+
+for (colName in names(colEncodings)) {
+  
+  encoding <- colEncodings[[colName]]
+  
+  encodedValues <- encoding[ratones[[colName]]]
+  
+  ratones[[colName]] <- as.numeric(encodedValues)
+}
+
+write.xlsx(ratones, "Ratones.xlsx", overwrite = TRUE)
+```
+
+```{r Imputación}
+
+ratones = read.xlsx("Ratones.xlsx", sheet=1)
+
+summary(ratones[,2:(ncol(ratones)-4)])
+
+mySD = apply(ratones[,2:(ncol(ratones)-4)], 2, sd,na.rm=TRUE)
+myMU = colMeans(ratones[,2:(ncol(ratones)-4)], na.rm = TRUE)
+myCV = mySD/myMU
+sort(myCV)
+
+numNA = apply(ratones, 2, function(x) sum(is.na(x)))
+percNA = round(100*apply(ratones, 2, function(x) mean(is.na(x))), 2)
+tablaNAcol = data.frame("Variable" = colnames(ratones), numNA, percNA)
+
+colNA <- which(tablaNAcol$percNA >= 20 )
+ratones <- ratones[, -colNA]
+
+numNA = apply(ratones, 2, function(x) sum(is.na(x)))
+percNA = round(100*apply(ratones, 2, function(x) mean(is.na(x))), 2)
+tablaNAcol = data.frame("Variable" = colnames(ratones), numNA, percNA)
+
+numNA = apply(ratones, 1, function(x) sum(is.na(x)))
+percNA = round(100*apply(ratones, 1, function(x) mean(is.na(x))), 2)
+tablaNArow = data.frame(numNA, percNA)
+
+summary(tablaNArow$numNA)
+
+barplot(table(tablaNArow$percNA), xlab = "% Valores faltantes", ylab = "Número de casos", main = "Ratones")
+
+rowNA <- which(tablaNArow$percNA >= 20 )
+
+patrones = md.pattern(ratones, rotate.names = FALSE)
+
+ratonesNA <- ratones[,which(tablaNAcol$percNA > 0)]
+
+ratonesImp = mice(ratonesNA, seed = 123, m = 5, print = FALSE, method = NULL)
+
+p <- mice::stripplot(ratonesImp)
+
+tablaNAcol[tablaNAcol$percNA > 1,]
+
+colSelect <- c("ELK_N","Bcatenin_N","BAD_N","pCFOS_N","H3AcK18_N","EGR1_N")
+
+for (i in colSelect){
+  print(p[which(colnames(ratonesNA) == i)])
+}
+
+ratonesImp <- complete(ratonesImp, 2)
+ratones[, colnames(ratonesImp)] <- ratonesImp
+
+par(mfrow = c(2,4))
+for (i in colSelect) {
+  boxplot(list("antes" = ratonesNA[,which(colnames(ratonesNA) == i)], "después" = ratonesImp[,which(colnames(ratonesNA) == i)]), 
+          col = heat.colors(2), main = colnames(ratonesNA)[i], las = 2)
+}
+
+write.xlsx(ratones, "RatonesLimpios.xlsx", overwrite = TRUE)
+
+```
