@@ -68,7 +68,7 @@ res.pca_sin2 = PCA(datos, scale.unit = FALSE, graph = FALSE, ncp = K_sin,
 
 ### Anomalos
 
-```{r anomalos sin escalar}
+```{r anomalos}
 misScores = res.pca_sin2$ind$coord[,1:K_sin]
 miT2 = colSums(t(misScores**2)/eig.val_sin[1:K_sin,1])
 I = nrow(datos)
@@ -86,7 +86,7 @@ anomalas
 ```
 
 
-```{r graficos individuos sin escalar}
+```{r graficos}
 library(grid)
 library(gridExtra)
 
@@ -103,13 +103,79 @@ p2 = fviz_pca_ind(res.pca_sin2, axes = c(1,3), geom = c("point"),
 grid.arrange(p1,p2, nrow = 1)
 ```
 
-```{r grafico variables sin escalar}
+```{r variables sin}
 fviz_pca_var(res.pca_sin2, axes = c(1,2), repel = TRUE, col.var = "contrib",
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
 ```
 
-```{r grafico variables sin escalar 2}
+```{r variables sin 2}
 fviz_pca_var(res.pca_sin2, axes = c(1,3), repel = TRUE, col.var = "contrib",
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
 ```
 
+## PCA con escalar
+
+```{r PCA con escalar}
+library(FactoMineR)
+library(factoextra)
+
+res.pca_con = PCA(datos, scale.unit = TRUE, graph = FALSE, ncp = 10, 
+              quali.sup = which(descRatones$tipo == "categorical"),
+              quanti.sup = 77:79)
+eig.val_con <- get_eigenvalue(res.pca_con)
+VPmedio_con = 100 * (1/nrow(eig.val_con))
+fviz_eig(res.pca_con, addlabels = TRUE) +
+  geom_hline(yintercept=VPmedio_con, linetype=2, color="red")
+kable(eig.val_con[1:6,])
+K_con = 4
+res.pca_con2 = PCA(datos, scale.unit = TRUE, graph = FALSE, ncp = K_con, 
+              quali.sup = which(descRatones$tipo == "categorical"),
+              quanti.sup = 77:79)
+```
+
+### Anomalos
+
+```{r anomalos con}
+misScores_con = res.pca_con2$ind$coord[,1:K_con]
+miT2_con = colSums(t(misScores_con**2)/eig.val_con[1:K_con,1])
+I_con = nrow(datos)
+F95_con = K_con*(I_con**2 - 1)/(I_con*(I_con - K_con)) * qf(0.95, K_con, I-K_con)
+F99_con = K_con*(I_con**2 - 1)/(I_con*(I_con - K_con)) * qf(0.99, K_con, I-K_con)
+
+plot(1:length(miT2_con), miT2_con, type = "p", xlab = "Ratones", ylab = "T2")
+abline(h = F95_con, col = "orange", lty = 2, lwd = 2)
+abline(h = F99_con, col = "red3", lty = 2, lwd = 2)
+```
+
+```{r}
+anomalas_con = which(miT2_con > F95_con)
+anomalas_con
+```
+
+
+```{r graficos}
+library(grid)
+library(gridExtra)
+
+
+p1_con = fviz_pca_ind(res.pca_con2, axes = c(1,2), geom = c("point"),
+                  habillage = factor(miT2_con > F95_con)) +
+  tune::coord_obs_pred()
+
+p2_con = fviz_pca_ind(res.pca_con2, axes = c(1,3), geom = c("point"), 
+                  habillage = factor(miT2_con > F95_con)) +
+  tune::coord_obs_pred() 
+  
+
+grid.arrange(p1_con,p2_con, nrow = 1)
+```
+
+```{r variables con}
+fviz_pca_var(res.pca_con2, axes = c(1,2), repel = TRUE, col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
+```
+
+```{r variables con 2}
+fviz_pca_var(res.pca_con2, axes = c(1,3), repel = TRUE, col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
+```
