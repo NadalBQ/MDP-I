@@ -15,6 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(readxl)
 library(mice)
 library(knitr)
+library(purrr)
 ```
 
 # Datos y descripción
@@ -22,6 +23,9 @@ library(knitr)
 ```{r datos}
 
 datos = read_excel("RatonesLimpios.xlsx", col_names = TRUE)
+datos = as.data.frame(datos)
+
+newID = sapply(datos$MouseID, function (x) strsplit(x, "_")[[1]][1])
 head(datos, 3)
 ```
 
