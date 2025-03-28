@@ -67,7 +67,7 @@ VPmedio_sin = 100 * (1/nrow(eig.val_sin))
 fviz_eig(res.pca_sin, addlabels = TRUE) +
   geom_hline(yintercept=VPmedio_sin, linetype=2, color="red")
 kable(eig.val_sin[1:6,])
-K_sin = 3
+K_sin = 4
 res.pca_sin2 = PCA(datos, scale.unit = FALSE, graph = FALSE, ncp = K_sin, 
               quali.sup = which(descRatones$tipo == "categorical"),
               quanti.sup = 77:79)
@@ -142,7 +142,7 @@ p1 = fviz_pca_ind(res.pca_sin2, axes = c(1,2), geom = c("point"),
                   habillage = factor(miT2 > F95)) +
   tune::coord_obs_pred()
 
-p2 = fviz_pca_ind(res.pca_sin2, axes = c(1,3), geom = c("point"), 
+p2 = fviz_pca_ind(res.pca_sin2, axes = c(3,4), geom = c("point"), 
                   habillage = factor(miT2 > F95)) +
   tune::coord_obs_pred() 
   
@@ -161,7 +161,7 @@ p1_con = fviz_pca_ind(res.pca_con2, axes = c(1,2), geom = c("point"),
                   habillage = factor(miT2_con > F95_con)) +
   tune::coord_obs_pred()
 
-p2_con = fviz_pca_ind(res.pca_con2, axes = c(1,3), geom = c("point"), 
+p2_con = fviz_pca_ind(res.pca_con2, axes = c(3,4), geom = c("point"), 
                   habillage = factor(miT2_con > F95_con)) +
   tune::coord_obs_pred() 
   
@@ -175,7 +175,7 @@ grid.arrange(p1_con,p2_con, nrow = 1)
 fviz_pca_var(res.pca_sin2, axes = c(1,2), repel = TRUE, col.var = "contrib",
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
 
-fviz_pca_var(res.pca_sin2, axes = c(1,3), repel = TRUE,
+fviz_pca_var(res.pca_sin2, axes = c(3,4), repel = TRUE,
              col.var = "contrib", 
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
              select.var = list("contrib"=40), labelsize = 2)
@@ -187,7 +187,7 @@ fviz_pca_var(res.pca_sin2, axes = c(1,3), repel = TRUE,
 fviz_pca_var(res.pca_con2, axes = c(1,2), repel = TRUE, col.var = "contrib",
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
 
-fviz_pca_var(res.pca_con2, axes = c(1,3), repel = TRUE, col.var = "contrib",
+fviz_pca_var(res.pca_con2, axes = c(3,4), repel = TRUE, col.var = "contrib",
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
 ```
 
@@ -199,7 +199,7 @@ fviz_pca_ind(res.pca_sin2, axes = c(1,2), geom = c("point"), repel = TRUE,
              labelsize = 2,
              habillage = "Tratamiento", addEllipses = TRUE)
 
-fviz_pca_ind(res.pca_sin2, axes = c(1,3), geom = c("point"), repel = TRUE,
+fviz_pca_ind(res.pca_sin2, axes = c(3,4), geom = c("point"), repel = TRUE,
              labelsize = 2,
              habillage = "Tratamiento", addEllipses = TRUE)
 ```
@@ -222,7 +222,7 @@ fviz_pca_ind(res.pca_sin2, axes = c(1,2), geom = c("point"), repel = TRUE,
              labelsize = 2,
              habillage = "Genotipo", addEllipses = TRUE)
 
-fviz_pca_ind(res.pca_sin2, axes = c(1,3), geom = c("point"), repel = TRUE,
+fviz_pca_ind(res.pca_sin2, axes = c(3,4), geom = c("point"), repel = TRUE,
              labelsize = 2,
              habillage = "Genotipo", addEllipses = TRUE)
 ```
@@ -232,7 +232,7 @@ fviz_pca_ind(res.pca_con2, axes = c(1,2), geom = c("point"), repel = TRUE,
              labelsize = 2,
              habillage = "Genotipo", addEllipses = TRUE)
 
-fviz_pca_ind(res.pca_con2, axes = c(1,3), geom = c("point"), repel = TRUE,
+fviz_pca_ind(res.pca_con2, axes = c(3,4), geom = c("point"), repel = TRUE,
              labelsize = 2,
              habillage = "Genotipo", addEllipses = TRUE)
 ```
@@ -244,7 +244,7 @@ fviz_pca_ind(res.pca_sin2, axes = c(1,2), geom = c("point"), repel = TRUE,
              labelsize = 2,
              habillage = "Comportamiento", addEllipses = TRUE)
 
-fviz_pca_ind(res.pca_sin2, axes = c(1,3), geom = c("point"), repel = TRUE,
+fviz_pca_ind(res.pca_sin2, axes = c(3,4), geom = c("point"), repel = TRUE,
              labelsize = 2,
              habillage = "Comportamiento", addEllipses = TRUE)
 ```
@@ -266,7 +266,7 @@ fviz_pca_ind(res.pca_sin2, axes = c(1,2), geom = c("point"), repel = TRUE,
              labelsize = 2,
              habillage = "Clase", addEllipses = TRUE)
 
-fviz_pca_ind(res.pca_sin2, axes = c(1,3), geom = c("point"), repel = TRUE,
+fviz_pca_ind(res.pca_sin2, axes = c(3,4), geom = c("point"), repel = TRUE,
              labelsize = 2,
              habillage = "Clase", addEllipses = TRUE)
 ```
@@ -281,4 +281,42 @@ fviz_pca_ind(res.pca_con2, axes = c(3,4), geom = c("point"), repel = TRUE,
              habillage = "Clase", addEllipses = TRUE)
 ```
 
+### MouseID
+
+```{r}
+datos$MouseIDlimpio <- gsub("_\\d+$", "", datos$MouseID)
+head(datos, 3)
+datos_sinID <- subset(datos, select = -c(MouseID))
+
+descRatonesID = data.frame("variable" = colnames(datos_sinID),
+                      "tipo" = c(rep("numerical", 75),
+                                 rep("binary", 3), rep("categorical", 2)), stringsAsFactors = FALSE)
+rownames(descRatonesID) = descRatonesID$variable
+descRatonesID
+```
+
+```{r mouseID limpio pca sin}
+res.pca_sin = PCA(datos_sinID, scale.unit = FALSE, graph = FALSE, ncp = 10, 
+              quali.sup = which(descRatonesID$tipo == "categorical"),
+              quanti.sup = which(descRatonesID$tipo == "binaria"))
+eig.val_sin <- get_eigenvalue(res.pca_sin)
+VPmedio_sin = 100 * (1/nrow(eig.val_sin))
+fviz_eig(res.pca_sin, addlabels = TRUE) +
+  geom_hline(yintercept=VPmedio_sin, linetype=2, color="red")
+kable(eig.val_sin[1:6,])
+K_sin = 4
+res.pca_sin2 = PCA(datos_sinID, scale.unit = FALSE, graph = FALSE, ncp = K_sin, 
+              quali.sup = which(descRatonesID$tipo == "categorical"),
+              quanti.sup = which(descRatonesID$tipo == "binaria"))
+```
+
+```{r}
+fviz_pca_ind(res.pca_sin, axes = c(1,2), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = c("MouseIDLimpio", "Clase"), addEllipses = TRUE)
+
+fviz_pca_ind(res.pca_sin, axes = c(3,4), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = c("MouseIDLimpio", "Clase"), addEllipses = TRUE)
+```
 
