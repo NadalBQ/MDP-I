@@ -29,6 +29,8 @@ newID = sapply(datos$MouseID, function (x) strsplit(x, "_")[[1]][1])
 head(datos, 3)
 ```
 
+# Tabla descripcion
+
 ```{r tabla descripcion}
 descRatones = data.frame("variable" = colnames(datos),
                       "tipo" = c("categorical", rep("numerical", 75),
@@ -49,7 +51,8 @@ head(datos, 3)
 
 ```
 
-# PCA
+# PCA sin y con escalar
+
 ## PCA sin escalar
 
 ```{r PCA sin escalar}
@@ -58,7 +61,7 @@ library(factoextra)
 
 res.pca_sin = PCA(datos, scale.unit = FALSE, graph = FALSE, ncp = 10, 
               quali.sup = which(descRatones$tipo == "categorical"),
-              quanti.sup = 77:79)
+              quanti.sup = which(descRatones$tipo == "binaria"))
 eig.val_sin <- get_eigenvalue(res.pca_sin)
 VPmedio_sin = 100 * (1/nrow(eig.val_sin))
 fviz_eig(res.pca_sin, addlabels = TRUE) +
@@ -70,7 +73,27 @@ res.pca_sin2 = PCA(datos, scale.unit = FALSE, graph = FALSE, ncp = K_sin,
               quanti.sup = 77:79)
 ```
 
-### Anomalos
+## PCA con escalar
+
+```{r PCA con escalado}
+library(FactoMineR)
+library(factoextra)
+
+res.pca_con = PCA(datos, scale.unit = TRUE, graph = FALSE, ncp = 10, 
+              quali.sup = which(descRatones$tipo == "categorical"),
+              quanti.sup = which(descRatones$tipo == "binaria"))
+eig.val_con <- get_eigenvalue(res.pca_con)
+VPmedio_con = 100 * (1/nrow(eig.val_con))
+fviz_eig(res.pca_con, addlabels = TRUE) +
+  geom_hline(yintercept=VPmedio_con, linetype=2, color="red")
+kable(eig.val_con[1:6,])
+K_con = 4
+res.pca_con2 = PCA(datos, scale.unit = TRUE, graph = FALSE, ncp = K_con, 
+              quali.sup = which(descRatones$tipo == "categorical"),
+              quanti.sup = 77:79)
+```
+
+## Anomalos sin escalar
 
 ```{r anomalos sin escalar}
 misScores = res.pca_sin2$ind$coord[,1:K_sin]
@@ -89,65 +112,7 @@ anomalas = which(miT2 > F95)
 anomalas
 ```
 
-
-```{r graficos individuos sin escalar}
-library(grid)
-library(gridExtra)
-
-
-p1 = fviz_pca_ind(res.pca_sin2, axes = c(1,2), geom = c("point"),
-                  habillage = factor(miT2 > F95)) +
-  tune::coord_obs_pred()
-
-p2 = fviz_pca_ind(res.pca_sin2, axes = c(1,3), geom = c("point"), 
-                  habillage = factor(miT2 > F95)) +
-  tune::coord_obs_pred() 
-  
-
-grid.arrange(p1,p2, nrow = 1)
-```
-
-```{r grafico variables sin escalar 1}
-fviz_pca_var(res.pca_sin2, axes = c(1,2), repel = TRUE, col.var = "contrib",
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
-```
-
-```{r grafico variables sin escalar 2}
-fviz_pca_var(res.pca_sin2, axes = c(1,3), repel = TRUE,
-             col.var = "contrib", 
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             select.var = list("contrib"=40), labelsize = 2)
-
-fviz_pca_ind(res.pca_sin2, axes = c(1,2), geom = c("point"), repel = TRUE,
-             labelsize = 2,
-             habillage = "Tratamiento", addEllipses = TRUE)
-
-fviz_pca_ind(res.pca_sin2, axes = c(1,3), geom = c("point"), repel = TRUE,
-             labelsize = 2,
-             habillage = "Tratamiento", addEllipses = TRUE)
-```
-
-## PCA con escalado
-
-```{r PCA con escalado}
-library(FactoMineR)
-library(factoextra)
-
-res.pca_con = PCA(datos, scale.unit = TRUE, graph = FALSE, ncp = 10, 
-              quali.sup = which(descRatones$tipo == "categorical"),
-              quanti.sup = 77:79)
-eig.val_con <- get_eigenvalue(res.pca_con)
-VPmedio_con = 100 * (1/nrow(eig.val_con))
-fviz_eig(res.pca_con, addlabels = TRUE) +
-  geom_hline(yintercept=VPmedio_con, linetype=2, color="red")
-kable(eig.val_con[1:6,])
-K_con = 4
-res.pca_con2 = PCA(datos, scale.unit = TRUE, graph = FALSE, ncp = K_con, 
-              quali.sup = which(descRatones$tipo == "categorical"),
-              quanti.sup = 77:79)
-```
-
-### Anomalos
+## Anomalos con escalar
 
 ```{r anomalos con escalado}
 misScores_con = res.pca_con2$ind$coord[,1:K_con]
@@ -166,6 +131,26 @@ anomalas_con = which(miT2_con > F95_con)
 anomalas_con
 ```
 
+## Graficos individuos sin escalar
+
+```{r graficos individuos sin escalar}
+library(grid)
+library(gridExtra)
+
+
+p1 = fviz_pca_ind(res.pca_sin2, axes = c(1,2), geom = c("point"),
+                  habillage = factor(miT2 > F95)) +
+  tune::coord_obs_pred()
+
+p2 = fviz_pca_ind(res.pca_sin2, axes = c(1,3), geom = c("point"), 
+                  habillage = factor(miT2 > F95)) +
+  tune::coord_obs_pred() 
+  
+
+grid.arrange(p1,p2, nrow = 1)
+```
+
+## Graficos individuos con escalar
 
 ```{r graficos individuos con escalado}
 library(grid)
@@ -184,27 +169,116 @@ p2_con = fviz_pca_ind(res.pca_con2, axes = c(1,3), geom = c("point"),
 grid.arrange(p1_con,p2_con, nrow = 1)
 ```
 
-```{r grafico variables con escalado 1}
-fviz_pca_var(res.pca_con2, axes = c(1,2), repel = TRUE, col.var = "contrib",
+## Grafico variables sin escalar
+
+```{r grafico variables sin escalar}
+fviz_pca_var(res.pca_sin2, axes = c(1,2), repel = TRUE, col.var = "contrib",
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
+
+fviz_pca_var(res.pca_sin2, axes = c(1,3), repel = TRUE,
+             col.var = "contrib", 
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             select.var = list("contrib"=40), labelsize = 2)
 ```
 
+### Grafico variables con escalar
+
 ```{r grafico variables con escalado 2}
+fviz_pca_var(res.pca_con2, axes = c(1,2), repel = TRUE, col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
+
 fviz_pca_var(res.pca_con2, axes = c(1,3), repel = TRUE, col.var = "contrib",
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
 ```
 
-```{r grafico variables con escalar 2}
-fviz_pca_var(res.pca_con2, axes = c(1,3), repel = TRUE,
-             col.var = "contrib", 
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             select.var = list("contrib"=40), labelsize = 2)
+## Grafico individuos por variable binaria
+### Tratamiento
 
+```{r grafico individuos sin escalado tratamiento}
+fviz_pca_ind(res.pca_sin2, axes = c(1,2), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Tratamiento", addEllipses = TRUE)
+
+fviz_pca_ind(res.pca_sin2, axes = c(1,3), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Tratamiento", addEllipses = TRUE)
+```
+
+
+```{r grafico variables con escalar 2}
 fviz_pca_ind(res.pca_con2, axes = c(1,2), geom = c("point"), repel = TRUE,
              labelsize = 2,
              habillage = "Tratamiento", addEllipses = TRUE)
 
-fviz_pca_ind(res.pca_con2, axes = c(1,3), geom = c("point"), repel = TRUE,
+fviz_pca_ind(res.pca_con2, axes = c(3,4), geom = c("point"), repel = TRUE,
              labelsize = 2,
              habillage = "Tratamiento", addEllipses = TRUE)
 ```
+
+### Genotipo
+
+```{r grafico variables sin escalar Genotipo}
+fviz_pca_ind(res.pca_sin2, axes = c(1,2), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Genotipo", addEllipses = TRUE)
+
+fviz_pca_ind(res.pca_sin2, axes = c(1,3), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Genotipo", addEllipses = TRUE)
+```
+
+```{r grafico variables con escalar Genotipo}
+fviz_pca_ind(res.pca_con2, axes = c(1,2), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Genotipo", addEllipses = TRUE)
+
+fviz_pca_ind(res.pca_con2, axes = c(1,3), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Genotipo", addEllipses = TRUE)
+```
+
+### Comportamiento
+
+```{r grafico variables sin escalar comportamiento}
+fviz_pca_ind(res.pca_sin2, axes = c(1,2), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Comportamiento", addEllipses = TRUE)
+
+fviz_pca_ind(res.pca_sin2, axes = c(1,3), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Comportamiento", addEllipses = TRUE)
+```
+
+```{r grafico variables con escalar comportamiento}
+fviz_pca_ind(res.pca_con2, axes = c(1,2), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Comportamiento", addEllipses = TRUE)
+
+fviz_pca_ind(res.pca_con2, axes = c(3,4), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Comportamiento", addEllipses = TRUE)
+```
+
+### Clase
+
+```{r grafico variables sin escalar Clase}
+fviz_pca_ind(res.pca_sin2, axes = c(1,2), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Clase", addEllipses = TRUE)
+
+fviz_pca_ind(res.pca_sin2, axes = c(1,3), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Clase", addEllipses = TRUE)
+```
+
+```{r grafico variables con escalar Clase}
+fviz_pca_ind(res.pca_con2, axes = c(1,2), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Clase", addEllipses = TRUE)
+
+fviz_pca_ind(res.pca_con2, axes = c(3,4), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Clase", addEllipses = TRUE)
+```
+
+
