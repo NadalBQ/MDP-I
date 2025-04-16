@@ -17,7 +17,7 @@ library(factoextra)
 library(NbClust)
 library(clValid)
 ```
-# RATONES
+# RATONES CLUSTERING
 
 ## Datos y descripción
 
@@ -52,8 +52,6 @@ head(datos, 3)
 
 ## Selección de variables a utilizar y preparación de datos
 
-El objetivo es realizar un análisis de agrupamiento de ratones con niveles de expresión de proteínas similares. Para ello, se han seleccionado las variables de proteínas para realizar el clustering.
-
 ```{r}
 datos_num = datos[,descRatones$variable[descRatones$tipo == "numerical"]]
 head(datos_num)
@@ -62,15 +60,11 @@ head(datos_num)
 
 ## Medida de distancia y tendencia de agrupamiento
 
-Se utilizará la distancia euclídea como medida de distancia, porque se desea agrupar ratones con valores de expresión de proteínas similares y no con perfiles similares de proteínas.
-
 ```{r dist}
 midist <- get_dist(datos_num, stand = FALSE, method = "euclidean")
 fviz_dist(midist, show_labels = TRUE, lab_size = 0.3,
           gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
 ```
-
-En el mapa de calor se observa que un grupo grande de ratones, otro grupo un poco más pequeño y otro aun más pequeño. Además, se observa una gran cantidad de ratones que no se agrupan con los demás.
 
 ```{r hopkins}
 set.seed(100)
@@ -85,6 +79,93 @@ for (i in myN) {
 }
 summary(myhopkins)
 ```
-El estadístico de Hopkins es un valor entre 0 y 1, donde valores cercanos a 1 indican que los datos son agrupables. En este caso, el estadístico de Hopkins es muy cercano a 1 con un rango de 0.9 a 0.94, lo que indica tendencia de agrupamiento.
 
 ## Modelos jerárquicos
+
+### Método de Ward
+
+Obtendremos el número de clusters óptimo para el método de Ward. Vamos a combinar el análisis del coeficiente de Silhouette con la variabilidad intra-cluster para ver el número de clusters con el que quedamos. 
+
+```{r koptJERward, fig.width=8, fig.height=4}
+library(grid)
+library(gridExtra)
+p1 = fviz_nbclust(x = datos_num, FUNcluster = hcut, method = "silhouette", 
+                  hc_method = "ward.D2", k.max = 10, verbose = FALSE, 
+                  hc_metric = "euclidean") + labs(title = "Num. optimo clusters")
+p2 = fviz_nbclust(x = datos_num, FUNcluster = hcut, method = "wss", 
+                  hc_method = "ward.D2", k.max = 10, verbose = FALSE, 
+                  hc_metric = "euclidean") + labs(title = "Num. optimo clusters")
+grid.arrange(p1, p2, nrow = 1)
+```
+
+Los resultados para el coeficiente Silhouette indican que el número óptimo de clusters es 2 clusters. Si vemos la variabilidad intra-cluster, aún está bastante alta. Si elegimos el segundo óptimo, 3 clusters, la variabilidad intra-cluster ya baja bastante y, además, parece el punto en el que se crea el codo. Si cogemos el número de clusters como 4, baja la variabilidad intra-cluster pero también baja bastante el coeficiente Silhouette. Por tanto, fijaremos el número de clusters en 3. 
+
+Creamos a continuación los 3 clusters con el modelo jerárquico y el método de Ward. Dado que el número de observaciones lo permite, generaremos el dendrograma para visualizar la agrupación de los ratones. 
+
+
+```{r ward, fig.width=8, fig.height=6, warning=FALSE}
+clust1 <- hclust(midist, method="ward.D2")
+grupos1 <- cutree(clust1, k=3)
+table(grupos1)
+fviz_dend(clust1, k = 3,
+          cex = 0.5, color_labels_by_k = TRUE,
+          rect = TRUE) # dibujar rectángulos
+```
+
+
+### Método de la media
+
+Ahora estimaremos el número óptimo de clusters para el método de la media.
+
+
+```{r koptJERmedia, fig.width=8, fig.height=4}
+p1 = fviz_nbclust(x = datos_num, FUNcluster = hcut, method = "silhouette", 
+                  hc_method = "average", k.max = 10, verbose = FALSE, 
+                  hc_metric = "euclidean") + labs(title = "Num. optimo clusters")
+p2 = fviz_nbclust(x = datos_num, FUNcluster = hcut, method = "wss", 
+                  hc_method = "average", k.max = 10, verbose = FALSE, 
+                  hc_metric = "euclidean") + labs(title = "Num. optimo clusters")
+grid.arrange(p1, p2, nrow = 1)
+```
+
+Los resultados para el coeficiente Silhouette indican que el número óptimo de clusters es 2. Sin embargo, la suma de cuadrados intra-cluster es demasiado elevada para dos clusters. El siguiente óptimo de Silhoutte es 3 clusters, con una alta suma de cuadrados intra-cluster. Si elegimos el tercer óptimo, 4 clusters, la variabilidad intra-cluster ya baja bastante y, además, parece el punto en el que se crea el codo. Por tanto, fijaremos el número de clusters en 4. 
+
+
+```{r media, fig.width=8, fig.height=6, warning=FALSE}
+clust2 <- hclust(midist, method="average")
+grupos2 = cutree(clust2, k = 4)
+fviz_dend(clust2, k = 4,
+          cex = 0.5,
+          color_labels_by_k = TRUE, # colorear etiquetas por grupo
+          rect = TRUE) # dibujar rectángulos
+table(grupos2)
+```
+
+Sin embargo, cuando observamos el dendrograma y el número de observaciones por cluster, vemos que este método propociona clusters más desequilibrados: dos de ellos con menos de 20 observaciones, otro con 150 y otro muy heterogéneo con muchas observaciones: `r max(table(grupos2))`.
+
+Es por ello que decidimos descartar el método de la media y compararemos el método de Ward con otros métodos de clustering no jerárquicos.
+
+### Método Centroide
+
+Ahora estimaremos el número óptimo de clusters para el método centroide.
+
+
+```{r koptJERcentroide, fig.width=8, fig.height=4}
+p1 = fviz_nbclust(x = datos_num, FUNcluster = hcut, method = "silhouette", 
+                  hc_method = "centroid", k.max = 10, verbose = FALSE, 
+                  hc_metric = "euclidean") + labs(title = "Num. optimo clusters")
+p2 = fviz_nbclust(x = datos_num, FUNcluster = hcut, method = "wss", 
+                  hc_method = "centroid", k.max = 10, verbose = FALSE, 
+                  hc_metric = "euclidean") + labs(title = "Num. optimo clusters")
+grid.arrange(p1, p2, nrow = 1)
+```
+
+```{r centroid, fig.width=8, fig.height=6, warning=FALSE}
+clust3 <- hclust(midist, method="centroid")
+grupos3 = cutree(clust3, k = 3)
+fviz_dend(clust3, k = 3,
+          cex = 0.5,
+          color_labels_by_k = TRUE, # colorear etiquetas por grupo
+          rect = TRUE) # dibujar rectángulos
+table(grupos3)
+```
