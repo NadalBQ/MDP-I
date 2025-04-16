@@ -52,6 +52,7 @@ head(datos, 3)
 
 ## Selección de variables a utilizar y preparación de datos
 
+El objetivo es realizar un análisis de agrupamiento de ratones con niveles de expresión de proteínas similares. Para ello, se han seleccionado las variables de proteínas para realizar el clustering.
 
 ```{r}
 datos_num = datos[,descRatones$variable[descRatones$tipo == "numerical"]]
@@ -60,11 +61,16 @@ head(datos_num)
 
 
 ## Medida de distancia y tendencia de agrupamiento
+
+Se utilizará la distancia euclídea como medida de distancia, porque se desea agrupar ratones con valores de expresión de proteínas similares y no con perfiles similares de proteínas.
+
 ```{r dist}
-midist <- get_dist(datos, stand = FALSE, method = "euclidean")
+midist <- get_dist(datos_num, stand = FALSE, method = "euclidean")
 fviz_dist(midist, show_labels = TRUE, lab_size = 0.3,
           gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
 ```
+
+En el mapa de calor se observa que un grupo grande de ratones, otro grupo un poco más pequeño y otro aun más pequeño. Además, se observa una gran cantidad de ratones que no se agrupan con los demás.
 
 ```{r hopkins}
 set.seed(100)
@@ -79,5 +85,6 @@ for (i in myN) {
 }
 summary(myhopkins)
 ```
+El estadístico de Hopkins es un valor entre 0 y 1, donde valores cercanos a 1 indican que los datos son agrupables. En este caso, el estadístico de Hopkins es muy cercano a 1 con un rango de 0.9 a 0.94, lo que indica tendencia de agrupamiento.
 
 ## Modelos jerárquicos
