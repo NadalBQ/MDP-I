@@ -51,7 +51,7 @@ head(datos, 3)
 
 ```
 
-# PCA sin y con escalar
+# PCA
 
 ## PCA sin escalar
 
@@ -295,28 +295,9 @@ rownames(descRatonesID) = descRatonesID$variable
 descRatonesID
 ```
 
-```{r mouseID limpio pca sin}
-res.pca_sin = PCA(datos_sinID, scale.unit = FALSE, graph = FALSE, ncp = 10, 
-              quali.sup = which(descRatonesID$tipo == "categorical"),
-              quanti.sup = which(descRatonesID$tipo == "binaria"))
-eig.val_sin <- get_eigenvalue(res.pca_sin)
-VPmedio_sin = 100 * (1/nrow(eig.val_sin))
-fviz_eig(res.pca_sin, addlabels = TRUE) +
-  geom_hline(yintercept=VPmedio_sin, linetype=2, color="red")
-kable(eig.val_sin[1:6,])
-K_sin = 4
-res.pca_sin2 = PCA(datos_sinID, scale.unit = FALSE, graph = FALSE, ncp = K_sin, 
-              quali.sup = which(descRatonesID$tipo == "categorical"),
-              quanti.sup = which(descRatonesID$tipo == "binaria"))
-```
 
-```{r}
-fviz_pca_ind(res.pca_sin, axes = c(1,2), geom = c("point"), repel = TRUE,
-             labelsize = 2,
-             habillage = c("MouseIDLimpio", "Clase"), addEllipses = TRUE)
+# Clustering
 
-fviz_pca_ind(res.pca_sin, axes = c(3,4), geom = c("point"), repel = TRUE,
-             labelsize = 2,
-             habillage = c("MouseIDLimpio", "Clase"), addEllipses = TRUE)
-```
+
+
 
