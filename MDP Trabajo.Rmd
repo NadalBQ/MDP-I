@@ -108,7 +108,7 @@ abline(h = F99, col = "red3", lty = 2, lwd = 2)
 ```
 
 ```{r}
-anomalas = which(miT2 > F95)
+anomalas = which(miT2 > F99)
 anomalas
 ```
 
@@ -150,6 +150,8 @@ p2 = fviz_pca_ind(res.pca_sin2, axes = c(3,4), geom = c("point"),
 grid.arrange(p1,p2, nrow = 1)
 ```
 
+En este gráfico de individuos del PCA sin escalar podemos diferenciar entre los valores normales y los atípicos. Vemos que justamente los ratones con valores anómalos se van hacia los extremos, lo cual tiene sentido.
+
 ## Graficos individuos con escalar
 
 ```{r graficos individuos con escalado}
@@ -169,6 +171,8 @@ p2_con = fviz_pca_ind(res.pca_con2, axes = c(3,4), geom = c("point"),
 grid.arrange(p1_con,p2_con, nrow = 1)
 ```
 
+En el gráfico con escalado vemos que los que tienen valores atípicos no se separan tanto con los valores normales como en el gráfico sin escalar, pero se pueden diferenciar bastante aún.
+
 ## Grafico variables sin escalar
 
 ```{r grafico variables sin escalar}
@@ -181,6 +185,8 @@ fviz_pca_var(res.pca_sin2, axes = c(3,4), repel = TRUE,
              select.var = list("contrib"=40), labelsize = 2)
 ```
 
+En los gráficos de variables sin escalado podemos ver que la mayoría de variables tienen poca contribución, pero hay 2 o 3 que tienen mucha. Destacando la variable pCAMKII_N  con las dimensiones 1 y 2 y la variable pKCG_N con las dimensiones 3 y 4. También podemos ver que la variable categórica con más contribución es comportamiento en la dimensión 2.
+
 ### Grafico variables con escalar
 
 ```{r grafico variables con escalado 2}
@@ -191,7 +197,12 @@ fviz_pca_var(res.pca_con2, axes = c(3,4), repel = TRUE, col.var = "contrib",
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
 ```
 
+En los gráficos de variables con escalado la contribución de las variables está mucho más distribuida. En la dimensión 1 las variables con más contribución están agrupadas en el lado derecho. Además, podemos observar otra vez que la variable categórica con más contribución es comportamiento en la dimensión 2.
+
 ## Grafico individuos por variable binaria
+
+En este apartado vamos a hacer gráficos de individuos agrupados por las diferentes variables binarias que tenemos, el propósito es ver si las dimensiones resultantes del PCA nos separan a los ratones por tipos.
+
 ### Tratamiento
 
 ```{r grafico individuos sin escalado tratamiento}
@@ -204,6 +215,7 @@ fviz_pca_ind(res.pca_sin2, axes = c(3,4), geom = c("point"), repel = TRUE,
              habillage = "Tratamiento", addEllipses = TRUE)
 ```
 
+En el PCA sin escalado ninguna de las dimensiones nos separa los ratones según su tratamiento.
 
 ```{r grafico variables con escalar 2}
 fviz_pca_ind(res.pca_con2, axes = c(1,2), geom = c("point"), repel = TRUE,
@@ -214,6 +226,8 @@ fviz_pca_ind(res.pca_con2, axes = c(3,4), geom = c("point"), repel = TRUE,
              labelsize = 2,
              habillage = "Tratamiento", addEllipses = TRUE)
 ```
+
+En el PCA con escalado tampoco vemos una diferencia significativa agrupando a los ratones según su tratamiento.
 
 ### Genotipo
 
@@ -227,6 +241,8 @@ fviz_pca_ind(res.pca_sin2, axes = c(3,4), geom = c("point"), repel = TRUE,
              habillage = "Genotipo", addEllipses = TRUE)
 ```
 
+En el gráfico sin escalar no vemos diferencias significativas entre los ratones trisómicos y control.
+
 ```{r grafico variables con escalar Genotipo}
 fviz_pca_ind(res.pca_con2, axes = c(1,2), geom = c("point"), repel = TRUE,
              labelsize = 2,
@@ -236,6 +252,8 @@ fviz_pca_ind(res.pca_con2, axes = c(3,4), geom = c("point"), repel = TRUE,
              labelsize = 2,
              habillage = "Genotipo", addEllipses = TRUE)
 ```
+
+En el gráfico con escalado tampoco se separan los ratones según su genotipo.
 
 ### Comportamiento
 
@@ -249,6 +267,8 @@ fviz_pca_ind(res.pca_sin2, axes = c(3,4), geom = c("point"), repel = TRUE,
              habillage = "Comportamiento", addEllipses = TRUE)
 ```
 
+En el gráfico sin escalado podemos ver una diferencia entre los individuos según su comportamiento. La segunda componente separa los ratones según si están inducidos para aprender o no.
+
 ```{r grafico variables con escalar comportamiento}
 fviz_pca_ind(res.pca_con2, axes = c(1,2), geom = c("point"), repel = TRUE,
              labelsize = 2,
@@ -258,6 +278,8 @@ fviz_pca_ind(res.pca_con2, axes = c(3,4), geom = c("point"), repel = TRUE,
              labelsize = 2,
              habillage = "Comportamiento", addEllipses = TRUE)
 ```
+
+En el gráfico con escalado también vemos que la segunda componente separa los ratones por su comportamiento.
 
 ### Clase
 
@@ -271,6 +293,8 @@ fviz_pca_ind(res.pca_sin2, axes = c(3,4), geom = c("point"), repel = TRUE,
              habillage = "Clase", addEllipses = TRUE)
 ```
 
+En el gráfico por clases de ratones no escalado vemos que no se separan las clases de ratones.
+
 ```{r grafico variables con escalar Clase}
 fviz_pca_ind(res.pca_con2, axes = c(1,2), geom = c("point"), repel = TRUE,
              labelsize = 2,
@@ -280,6 +304,54 @@ fviz_pca_ind(res.pca_con2, axes = c(3,4), geom = c("point"), repel = TRUE,
              labelsize = 2,
              habillage = "Clase", addEllipses = TRUE)
 ```
+
+En el gráfico con escalado agrupando por la variable clase tampoco vemos una separación de las clases de ratones.
+
+## Comparación entre clases t-CS-m y t-CS-s
+
+```{r comparación clases trisómico-aprende-memantina y trisómico-aprende-sinMemantina sin escalar}
+clases <- res.pca_sin2$call$X$Clase
+
+ind_deseados <- which(clases %in% c("t-CS-m", "t-CS-s"))
+ind_names <- rownames(res.pca_sin2$ind$coord)[ind_deseados]
+
+fviz_pca_ind(res.pca_sin2, 
+             axes = c(1,2), 
+             geom = "point", 
+             repel = TRUE,
+             labelsize = 2,
+             habillage = clases,
+             addEllipses = TRUE,
+             select.ind = list(name = ind_names))
+fviz_pca_ind(res.pca_sin2, 
+             axes = c(3,4), 
+             geom = "point", 
+             repel = TRUE,
+             labelsize = 2,
+             habillage = clases,
+             addEllipses = TRUE,
+             select.ind = list(name = ind_names))
+```
+
+```{r comparación clases trisómico-aprende-memantina y trisómico-aprende-sinMemantina escalando}
+fviz_pca_ind(res.pca_con2, 
+             axes = c(1,2), 
+             geom = "point", 
+             repel = TRUE,
+             labelsize = 2,
+             habillage = clases,
+             addEllipses = TRUE,
+             select.ind = list(name = ind_names))
+fviz_pca_ind(res.pca_con2, 
+             axes = c(3,4), 
+             geom = "point", 
+             repel = TRUE,
+             labelsize = 2,
+             habillage = clases,
+             addEllipses = TRUE,
+             select.ind = list(name = ind_names))
+```
+
 
 ### MouseID
 
