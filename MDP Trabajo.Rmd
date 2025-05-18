@@ -108,9 +108,10 @@ abline(h = F99, col = "red3", lty = 2, lwd = 2)
 ```
 
 ```{r}
-anomalas = which(miT2 > F99)
+anomalas = which(miT2 > F95*2)
 anomalas
 ```
+
 
 ## Anomalos con escalar
 
@@ -129,6 +130,68 @@ abline(h = F99_con, col = "red3", lty = 2, lwd = 2)
 ```{r}
 anomalas_con = which(miT2_con > F95_con)
 anomalas_con
+```
+## PCA sin escalar (sin anómalos)
+
+```{r}
+datos = datos[-anomalas,]
+res.pca_sin = PCA(datos, scale.unit = FALSE, graph = FALSE, ncp = 10, 
+              quali.sup = which(descRatones$tipo == "categorical"),
+              quanti.sup = which(descRatones$tipo == "binaria"))
+eig.val_sin <- get_eigenvalue(res.pca_sin)
+VPmedio_sin = 100 * (1/nrow(eig.val_sin))
+fviz_eig(res.pca_sin, addlabels = TRUE) +
+  geom_hline(yintercept=VPmedio_sin, linetype=2, color="red")
+kable(eig.val_sin[1:6,])
+K_sin = 4
+res.pca_sin2 = PCA(datos, scale.unit = FALSE, graph = FALSE, ncp = K_sin, 
+              quali.sup = which(descRatones$tipo == "categorical"),
+              quanti.sup = 77:79)
+```
+
+## PCA con escalar (con anómalos)
+
+```{r}
+res.pca_con = PCA(datos, scale.unit = TRUE, graph = FALSE, ncp = 10, 
+              quali.sup = which(descRatones$tipo == "categorical"),
+              quanti.sup = which(descRatones$tipo == "binaria"))
+eig.val_con <- get_eigenvalue(res.pca_con)
+VPmedio_con = 100 * (1/nrow(eig.val_con))
+fviz_eig(res.pca_con, addlabels = TRUE) +
+  geom_hline(yintercept=VPmedio_con, linetype=2, color="red")
+kable(eig.val_con[1:6,])
+K_con = 4
+res.pca_con2 = PCA(datos, scale.unit = TRUE, graph = FALSE, ncp = K_con, 
+              quali.sup = which(descRatones$tipo == "categorical"),
+              quanti.sup = 77:79)
+```
+
+## Anomalos sin escalar (sin T2 > F95*2)
+
+```{r anomalos sin escalar}
+misScores = res.pca_sin2$ind$coord[,1:K_sin]
+miT2 = colSums(t(misScores**2)/eig.val_sin[1:K_sin,1])
+I = nrow(datos)
+F95 = K_sin*(I**2 - 1)/(I*(I - K_sin)) * qf(0.95, K_sin, I-K_sin)
+F99 = K_sin*(I**2 - 1)/(I*(I - K_sin)) * qf(0.99, K_sin, I-K_sin)
+
+plot(1:length(miT2), miT2, type = "p", xlab = "Ratones", ylab = "T2")
+abline(h = F95, col = "orange", lty = 2, lwd = 2)
+abline(h = F99, col = "red3", lty = 2, lwd = 2)
+```
+
+## Anomalos con escalar (sin T2 > F95*2)
+
+```{r anomalos con escalado}
+misScores_con = res.pca_con2$ind$coord[,1:K_con]
+miT2_con = colSums(t(misScores_con**2)/eig.val_con[1:K_con,1])
+I_con = nrow(datos)
+F95_con = K_con*(I_con**2 - 1)/(I_con*(I_con - K_con)) * qf(0.95, K_con, I-K_con)
+F99_con = K_con*(I_con**2 - 1)/(I_con*(I_con - K_con)) * qf(0.99, K_con, I-K_con)
+
+plot(1:length(miT2_con), miT2_con, type = "p", xlab = "Ratones", ylab = "T2")
+abline(h = F95_con, col = "orange", lty = 2, lwd = 2)
+abline(h = F99_con, col = "red3", lty = 2, lwd = 2)
 ```
 
 ## Graficos individuos sin escalar
@@ -171,7 +234,7 @@ p2_con = fviz_pca_ind(res.pca_con2, axes = c(3,4), geom = c("point"),
 grid.arrange(p1_con,p2_con, nrow = 1)
 ```
 
-En el gráfico con escalado vemos que los que tienen valores atípicos no se separan tanto con los valores normales como en el gráfico sin escalar, pero se pueden diferenciar bastante aún.
+En el gráfico con escalado vemos que los que tienen valores atípicos no se separan tanto con los valores normales como en el gráfico sin escalar, pero se pueden diferenciar un poco aún.
 
 ## Grafico variables sin escalar
 
