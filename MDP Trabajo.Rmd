@@ -149,7 +149,7 @@ res.pca_sin2 = PCA(datos, scale.unit = FALSE, graph = FALSE, ncp = K_sin,
               quanti.sup = 77:79)
 ```
 
-## PCA con escalar (con anómalos)
+## PCA con escalar (sin anómalos)
 
 ```{r}
 res.pca_con = PCA(datos, scale.unit = TRUE, graph = FALSE, ncp = 10, 
