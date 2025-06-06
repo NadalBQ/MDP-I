@@ -4,12 +4,27 @@ author: "Chenyao"
 date: "`r Sys.Date()`"
 output: word_document
 ---
+# Introducción:
+
+Comenzando por el primer objetivo del trabajo, encontrar una base de datos con la que trabajar, el equipo llevó a cabo la búsqueda y selección de una base de datos apta para su análisis y trabajo posteriores. Esta base de datos debía cumplir ciertas condiciones, debía tener datos faltantes y anómalos de manera que la base de datos perfecta sería aquella que nos permitiese trabajar esos fallos. Se recomendaba tener representación de cerca de 100 individuos sin quedar muy por debajo ni demasiado por encima para facilitar luego los análisis y desarrollo de conclusiones.
+
+Finalmente nos decantamos por la base de datos sobre ratones con síndrome de Down y el efecto de cierto psicofármaco en el desarrollo de su capacidad de aprendizaje. La base de datos, además de contener variables categóricas binarias como el genotipo, la recepción del fármaco y su aptitud final, mostraba para cada ratón casi 80 variables que miden la proporción de ciertas proteínas en el cerebro del ratón examinado.
+
+Esta base de datos nos brindaba 15 observaciones por ratón, contando con 72 sujetos distintos con representación equitativa en cuanto a recepción de fármaco o placebo y a su vez la presencia o falta del genotipo.
+
+En primer lugar consideramos que un ratón tendrá aproximadamente los mismos valores para cada una de sus variables en sus 15 observaciones con que cualquier observación que diste anormalmente de sus iguales será considerada error de medición.
+
+Así pues de cara a analizar las observaciones de cada ratón se lleva a cabo un análisis exploratorio y pre proceso de los datos obtenidos en un archivo de formato xlsx.
+
+Para el tratamiento de estos se importa la librería de R xlsx para leer el archivo y las librerías dplyr y mice para tratarlo y trabajar sobre él. Con ellas se pretende analizar los datos obtenidos y así poder trabajar con ellos asegurándonos su limpieza y utilidad para el caso planteado.
 
 ```{r Librerías}
 library(openxlsx)
 library(dplyr)
 library(mice)
 ```
+
+En primer lugar se realiza una exploración de los datos a nivel visual se detectan y se modifican las variables que requieran una recodificación. Así pues renombramos las variables Genotype, Treatment, Behavior y Class a Genotipo, Tratamiento, Comportamiento y Clase; transformamos las variables Genotipo, Tratamiento y Comportamiento a su formato binario numérico (convirtiendo los valores de estas variables a un formato entendible para las herramientas que utilizamos), indicando con valor 0 el valor de Genotipo "control" y 1 el valor de Genotipo "Ts65Dn", con 0 el valor de Tratamiento "Saline" y con 1 el valor de Tratamiento "Memantine" y con 0 el valor de Comportamiento "S/C" y con 1 el valor de Comportamiento "C/S".
 
 ```{r Recodificación}
 
@@ -40,12 +55,17 @@ for (colName in names(colEncodings)) {
   ratones[[colName]] <- as.numeric(encodedValues)
 }
 
-write.xlsx(ratones, "Ratones.xlsx", overwrite = TRUE)
 ```
+Una vez realizadas las recodificaciones necesarias, se procede a la limpieza del conjunto de datos. En primer lugar, se resumen estadísticamente las variables numéricas, excluyendo las variables categóricas renombradas y recodificadas previamente. A continuación, se calcula la desviación típica, la media y el coeficiente de variación de cada variable para tener una primera idea de su dispersión relativa. Esto permite detectar posibles inconsistencias o valores con alta variabilidad.
+
+Seguidamente, se analiza la presencia de valores perdidos en cada variable. Se calcula tanto el número absoluto como el porcentaje de valores ausentes por columna, y se construye una tabla resumen. A partir de ella, se eliminan del conjunto de datos aquellas variables que presentan un porcentaje igual o superior al 20 % de valores perdidos. Se recalculan las métricas para comprobar el estado actualizado de los datos.
+
+Posteriormente, se realiza el mismo análisis pero a nivel de fila, identificando los individuos con un porcentaje elevado de datos faltantes. Se muestra un resumen estadístico del número de valores ausentes por individuo, así como un gráfico de barras con la distribución porcentual de los casos. Aunque se identifican las filas con más de un 20 % de datos perdidos, en este bloque no se eliminan.
+
+Para estudiar la estructura de los valores ausentes, se utiliza la función md.pattern del paquete mice, y se extraen únicamente las columnas con valores perdidos. Sobre estas variables, se aplica un proceso de imputación múltiple utilizando el método por defecto del paquete, generando cinco datasets imputados a partir de una semilla fija para garantizar la reproducibilidad. Se extraen gráficos tipo stripplot para evaluar visualmente los resultados de la imputación en distintas variables seleccionadas, y se completan los valores faltantes del conjunto original con los imputados de la segunda iteración. Finalmente, se comparan visualmente los valores antes y después de la imputación mediante diagramas de caja, y el nuevo conjunto de datos limpio se guarda en un archivo Excel para su uso posterior.
+
 
 ```{r Imputación}
-
-ratones = read.xlsx("Ratones.xlsx", sheet=1)
 
 summary(ratones[,2:(ncol(ratones)-4)])
 
