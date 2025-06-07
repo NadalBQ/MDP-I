@@ -2,7 +2,9 @@
 title: "MDP Trabajo Clustering"
 author: "Isabelle"
 date: "`r Sys.Date()`"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -20,7 +22,7 @@ library(clValid)
 library(grid)
 library(gridExtra)
 ```
-# RATONES CLUSTERING
+# Clustering de ratones
 
 ## Datos y descripción
 
@@ -62,8 +64,7 @@ datos_num = datos[,descRatones$variable[descRatones$tipo == "numerical"]]
 head(datos_num)
 ```
 
-
-## Medida de distancia y tendencia de agrupamiento
+## Medida de distancia
 Se utilizará la distancia euclídea como medida de distancia, porque se desea agrupar ratones con valores de expresión de proteínas similares y no con perfiles similares de proteínas.
 
 ```{r dist}
@@ -71,7 +72,10 @@ midist <- get_dist(datos_num, stand = FALSE, method = "euclidean")
 fviz_dist(midist, show_labels = TRUE, lab_size = 0.3,
           gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
 ```
-Se observa un gran cluster y dos clusters más pequeños.
+
+A lo largo de la diagonal se identifican bloques definidos de color azul, lo que indica la presencia de grupos de observaciones cercanas. Además, la separación entre estos bloques mediante zonas de color rojo refuerza la hipótesis de que los grupos están bien diferenciados. Los bloques mejor definidos son: un grupo grande con aproximadamente la mitad de las observaciones y dos grupos más pequeños cada uno con aproximadamente un cuarto de las observaciones.
+
+## Tendencia de agrupamiento
 ```{r hopkins}
 set.seed(100)
 myN = c(20, 35, 50, 65)  # m
@@ -85,13 +89,16 @@ for (i in myN) {
 }
 summary(myhopkins)
 ```
+
 El valor del estadístico de Hopkins está alrededor del 0.9, lo que indica que los datos tienen una tendencia a agruparse al estar cerca del 1.
+
+
+Habiendo observado el mapa de calor de distancias y el estadístico de Hopkins, se puede suponer que hay clústers. Por lo tanto, se va a proceder a probar varios métodos de clustering para encontrar el más adecuado. Se va a combinar el análisis del coeficiente de Silhouette (maximizando) con la variabilidad intra-cluster (minimizando) para elegir el número de grupos con el que se realizará el clustering.
 
 ## Modelos jerárquicos
 
 ### Método de Ward
-
-Obtendremos el número de clusters óptimo para el método de Ward. Vamos a combinar el análisis del coeficiente de Silhouette con la variabilidad intra-cluster para ver el número de clusters con el que quedamos. 
+Se obtendrá el número de clusters óptimo para el método de Ward.
 
 ```{r koptJERward, fig.width=8, fig.height=4}
 p1 = fviz_nbclust(x = datos_num, FUNcluster = hcut, method = "silhouette", 
@@ -103,10 +110,9 @@ p2 = fviz_nbclust(x = datos_num, FUNcluster = hcut, method = "wss",
 grid.arrange(p1, p2, nrow = 1)
 ```
 
-Los resultados para el coeficiente Silhouette indican que el número óptimo de clusters es 2 clusters. Si vemos la variabilidad intra-cluster, aún está bastante alta. Si elegimos el segundo óptimo, 3 clusters, la variabilidad intra-cluster ya baja bastante y, además, parece el punto en el que se crea el codo. Si cogemos el número de clusters como 4, baja la variabilidad intra-cluster pero también baja bastante el coeficiente Silhouette. Por tanto, fijaremos el número de clusters en 3. 
+Los resultados para el coeficiente Silhouette indican que el número óptimo de clusters es 2 clusters. Si observa la variabilidad intra-cluster, aún está bastante alta. Si elige el segundo óptimo, 3 clusters, la variabilidad intra-cluster ya baja bastante y, además, parece el punto en el que se crea el codo. Si coge el número de clusters como 4, baja la variabilidad intra-cluster pero también baja bastante el coeficiente Silhouette. Por tanto, se fijará el número de clusters en 3.
 
-Creamos a continuación los 3 clusters con el modelo jerárquico y el método de Ward. Dado que el número de observaciones lo permite, generaremos el dendrograma para visualizar la agrupación de los ratones. 
-
+Se crea a continuación los 3 clusters con el modelo jerárquico y el método de Ward. Dado que el número de observaciones lo permite, se generará el dendrograma para visualizar la agrupación de los ratones.
 
 ```{r ward, fig.width=8, fig.height=6, warning=FALSE}
 clust1 <- hclust(midist, method="ward.D2")
@@ -117,11 +123,11 @@ fviz_dend(clust1, k = 3,
           rect = TRUE) # dibujar rectángulos
 ```
 
+Se observan dos clústers que tienen más o menos la misma cantidad de observaciones y otro clúster que tiene más observaciones que los otros dos.
+
 
 ### Método de la media
-
-Ahora estimaremos el número óptimo de clusters para el método de la media.
-
+Ahora se estima el número óptimo de clusters para el método de la media.
 
 ```{r koptJERmedia, fig.width=8, fig.height=4}
 p1 = fviz_nbclust(x = datos_num, FUNcluster = hcut, method = "silhouette", 
@@ -133,8 +139,7 @@ p2 = fviz_nbclust(x = datos_num, FUNcluster = hcut, method = "wss",
 grid.arrange(p1, p2, nrow = 1)
 ```
 
-Los resultados para el coeficiente Silhouette indican que el número óptimo de clusters es 2. Sin embargo, la suma de cuadrados intra-cluster es demasiado elevada para dos clusters. El siguiente óptimo de Silhoutte es 3 clusters, con una alta suma de cuadrados intra-cluster. Si elegimos el tercer óptimo, 4 clusters, la variabilidad intra-cluster ya baja bastante y, además, parece el punto en el que se crea el codo. Por tanto, fijaremos el número de clusters en 4. 
-
+En la suma de cuadrados intra-cluster, se observan 3 codos. El primero codo es el 2 y coincide con el número óptimo del coeficiente de Silhouette. Sin embargo, la suma de cuadrados intra-cluster es demasiado elevada para 2 clusters. El segundo codo es el 4 bajando significativamente la suma de cuadrados intra-cluster y coincidiendo con el segundo número óptimo del coeficiente de Silhouette. Y, por último, el tercer codo es el 7 bajando aún más la suma de cuadrados intra-cluster y coincidiendo con el tercer número óptimo del coeficiente de Silhouette, el cual es prácticamente igual que el segundo óptimo. Sin embargo, teniendo en cuenta que hay 72 ratones, cada uno con 15 observaciones, 7 clústers es demasiado, por lo tanto se eligirá 4 clústers.
 
 ```{r media, fig.width=8, fig.height=6, warning=FALSE}
 clust2 <- hclust(midist, method="average")
@@ -146,14 +151,11 @@ fviz_dend(clust2, k = 4,
 table(grupos2)
 ```
 
-Sin embargo, cuando observamos el dendrograma y el número de observaciones por cluster, vemos que este método propociona clusters más desequilibrados: dos de ellos con menos de 20 observaciones, otro con 150 y otro muy heterogéneo con muchas observaciones: `r max(table(grupos2))`.
+Sin embargo, cuando se observa el dendrograma y el número de observaciones por clúster, se observa que uno de los clústers que proporciona este método tiene una sola observación, siendo esta una cantidad demasiado reducida. Por lo tanto, se descartará este método.
 
-Es por ello que decidimos descartar el método de la media y compararemos el método de Ward con otros métodos de clustering no jerárquicos.
 
 ### Método Centroide
-
-Ahora estimaremos el número óptimo de clusters para el método centroide.
-
+Ahora se estimará el número óptimo de clusters para el método centroide.
 
 ```{r koptJERcentroide, fig.width=8, fig.height=4}
 p1 = fviz_nbclust(x = datos_num, FUNcluster = hcut, method = "silhouette", 
@@ -165,20 +167,21 @@ p2 = fviz_nbclust(x = datos_num, FUNcluster = hcut, method = "wss",
 grid.arrange(p1, p2, nrow = 1)
 ```
 
+Observando el coeficiente de Silhouette, el número optimo de clústers es 2. Mientras que con la suma de cuadrados intra-clúster se observa un codo con 5 clústers. Sin embargo, con 5 clústers el coeficiente de Silhouette es prácticamente 0. A partir del 2, el coeficiente de Silhouette baja significativamente y con 2 la suma de cuadrados intra-clúster baja un poco, por lo tanto se elegirán 2 clústers.
+
 ```{r centroid, fig.width=8, fig.height=6, warning=FALSE}
 clust3 <- hclust(midist, method="centroid")
-grupos3 = cutree(clust3, k = 3)
-fviz_dend(clust3, k = 3,
-          cex = 0.5,
-          color_labels_by_k = TRUE, # colorear etiquetas por grupo
-          rect = TRUE) # dibujar rectángulos
+grupos3 = cutree(clust3, k = 2)
 table(grupos3)
 ```
-El método de la media y el método centroide son muy similares. En este caso, el número óptimo de clusters es 3 y los clusters son más equilibrados que en el caso del método de la media. Sin embargo, el método de Ward sigue siendo mejor, ya que proporciona una mejor separación entre los clusters.
+
+El método de la media y el método centroide sucede el mismo problema, también se genera un clúster con una sola observación. En este caso, el número óptimo de clusters es 2 y los clusters son más desequilibrados que en el caso del método de la media. Por lo tanto, también se descarta este método.
+
 
 ## Modelos de partición
+
 ### K-means
-```{r kmeans, fig.width=8, fig.height=6}
+```{r kmeans, fig.width=8, fig.height=4}
 p1 = fviz_nbclust(x = datos_num, FUNcluster = kmeans, method = "silhouette", 
              k.max = 10, verbose = FALSE) +
   labs(title = "K-means")
@@ -188,12 +191,18 @@ p2 = fviz_nbclust(x = datos_num, FUNcluster = kmeans, method = "wss",
 grid.arrange(p1, p2, nrow = 1)
 ```
 
+En el coeficiente de Silhouette, el número óptimo de clústers es 3. Esto coincide con el codo formado en la suma de cuadrados intra-clúster. Por lo que se eligen 3 clústers.
+
 ```{r}
 set.seed(100)
 clust4 <- kmeans(datos_num, centers = 3, nstart = 20)
 table(clust4$cluster)
 ```
 
+Con el método de k-means, se observa una distribución equilibrada entre los clústers formados.
+
+
+### PAM ((Partitioning Around Medoids)
 ```{r}
 p1 = fviz_nbclust(x = datos_num, FUNcluster = pam, method = "silhouette", 
              k.max = 10, verbose = FALSE) +
@@ -204,11 +213,17 @@ p2 = fviz_nbclust(x = datos_num, FUNcluster = pam, method = "wss",
 grid.arrange(p1, p2, nrow = 1)
 ```
 
+Se observa que con 3 clústers el coeficiente de Silhouette es muy similar que con 2 clústers, el número óptimo. Además, 3 clústers coincide con el codo más o menos visible de la suma de cuadrados intra-cluster. Por lo que se concluye con la elección de 3 clústers.
+
 ```{r}
 clust5 <- pam(datos_num, k = 3)
 table(clust5$clustering)
 ```
 
+La aplicación del método PAM da lugar a una distribución homogénea entre los clústers generados.
+
+
+## Selección del método de clustering
 ```{r}
 library(ggsci)
 colores = pal_npg("nrc")(3)
@@ -220,16 +235,114 @@ plot(silhouette(clust5$clustering, midist), col=colores, border=NA, main = "K-ME
 
 Observando los coeficientes de Silhouette, se elige el método de k-means con 3 clústers ya es el que tiene mayor Silhouette media y menor cantidad de observaciones con coeficientes negativos, es decir, mal clasificados.
 
-```{r}
-library(vcd)
-mosaic(~ clust4$cluster + Genotipo, data = datos, shade = TRUE)
-mosaic(~ clust4$cluster + Tratamiento, data = datos, shade = TRUE)
-mosaic(~ clust4$cluster + Comportamiento, data = datos, shade = TRUE)
-```
+
+## Estudio de los clústers
+Se añadirá la variable "cluster" a los datos utilizados para estudiar los clústers
 
 ```{r}
 datos$Cluster <- clust4$cluster
+```
 
+Se van a realizar gráficos de mosaico para analizar como se reparten las observaciones en las combinaciones de las tres variables binarias (Genotipo, Tratamiento y Comportamiento) respecto de los tres clústers. El tamaño de cada bloque es proporcional a la frecuencia observada y su color refleja el grado de desviación respecto a lo que cabría esperar si ambas variables fueran independientes. Los residuos de Pearson, codificados en una escala de colores, indican la dirección y la intensidad de esa desviación: los tonos azules señalan un exceso de casos frente al modelo de independencia, mientras que los rojos indican un déficit, cuanto más intenso es el color, mayor es la discrepancia. Por último, el p-valor de la prueba de bondad de ajuste resume en un solo indicador la solidez de esta asociación global, si el valor es pequeño (inferior a 0.05) se descarta la hipótesis nula de independencia y se confirma la existencia de una asociación estadísticamente significativa entre ambas variables.
+
+
+### Análisis con Genotipo
+```{r}
+library(vcd)
+mosaic(~ Cluster + Genotipo, data = datos, shade = TRUE)
+```
+
+Dado que el valor p de la prueba de bondad de ajuste es menor a 0.05, se concluye que existe una relación significativa entre el "Cluster" y el "Genotipo", por lo que se rechaza la hipótesis de independencia.
+Los clústers 1 y 2 no presentan desviaciones apreciables en la proporción de ratones trisómicos y ratones neurotípicos ya que para ambos genotipos los residuos de Pearson se mantienen cercanos a cero.
+Por otra parte, en el clúster 3 el residuo de Pearson para ratones neurotípicos (Genotipo = 0) se sitúa entre +2 y +3, lo que refleja que hay ligeramente más ratones neurotípicos que con trisomía.
+
+
+### Análisis con Tratamiento
+```{r}
+mosaic(~ Cluster + Tratamiento, data = datos, shade = TRUE)
+```
+El p-valor de la prueba de bondad de ajuste resulta ser inferior a 0.05, por lo que se rechaza la hipótesis de independencia entre "Cluster" y "Tratamiento".
+
+En el clúster 1 se observa un residuo de Pearson entre +2 y +4 para los ratones que no tomaron la medicina (Tratamiento = 0), lo que indica una mayor presencia de estos ratones en comparación con los que sí que recibieron el tratamiento.
+En el clúster 2 ocurre lo opuesto, el residuo para ratones no tratados es de aproximadamente –4, señalando que hay déficit notable de ratones sin tratar.
+Por último, en el clúster 3 ambos bloques tienen residuos cercanos a 0, lo que sugiere que la proporción de ratones tratados y no tratados en ese grupo se ajusta a lo previsto bajo independencia.
+
+
+### Análisis con Comportamiento
+```{r}
+mosaic(~ Cluster + Comportamiento, data = datos, shade = TRUE)
+```
+
+Como el valor p de la prueba de bondad de ajuste es menor a 0.05, se descarta la hipótesis de que "Cluster" y "Comportamiento" sean independientes.
+En el clúster 1 ambos bloques muestran residuos de Pearson cercanos a 0, lo que indica que la frecuencia observada de los ratones estimulados a aprender como de los que no fueron estimulados coincide casi exactamente con lo que se esperaría bajo independencia.
+En el clúster 2, el bloque correspondiente a ratones sin estimulación (Comportamiento = 0) presenta un residuo de Pearson superior a +4, señalando un exceso muy pronunciado de ratones con ese comportamiento en comparación con lo esperado.
+Por último, en el clúster 3 sucede lo inverso. El bloque de ratones con estimulación (Comportamiento = 1) arroja un residuo por encima de +4, mostrando un exceso muy significativo de ratones estimulados a aprender.
+
+
+### Análisis con Clase
+```{r}
+tab <- xtabs(~ Cluster + Clase, data = datos)
+
+mosaic(tab,
+       shade = TRUE,
+       labeling = labeling_border,
+       labeling_args = list(
+         rot_labels = c(top = 90),
+         gp_labels = gpar(fontsize = 10),
+         just_labels = c(top = "right"),
+         offset_labels = list(top = unit(2, "cm"))
+       ))
+```
+
+Dado que el valor p de la prueba de bondad de ajuste es menor a 0.05, se descarta la hipótesis de independencia entre las variables 'Cluster' y 'Clase'.
+En el clúster 1 no se observan grandes desviaciones, la mayoría se ajusta a lo esperado salvo los ratones trisómicos con estimulación y sin medicina (t-CS-s) y los trisómicos sin estimulación y con medicina (t-SC-m). Hay una ligera sobrerrepresentación de los primeros y una ligera infrarrepresentación de los segundos.
+En el clúster 2 muestra una fuerte sobrerrepresentación de ratones neurotípicos sin estimulación y con medicina (c-SC-m) y de trisómicos sin estimulación y con medicina(t-SC-m). Además, hay una ligera sobrerrepresentación de ratones trisómicos sin estimulación y sin medicina (t-SC-s). Por otra parte, hay infrarrepresentación de 3 tipos de ratones con estimulación (CS) y de los neurotípicos sin estimulación y sin medicina(c-SC-s).
+En el clúster 3 destaca la sobrerrepresentación de ratones neurotípicos con estimulación y con medicina (c-CS-m) y de neurotípicos con estimulación y sin medicina (c-CS-s). Por otra parte, hay infrarrepresentación de 3 tipos de ratones sin estimulación, destacando entre estos tipos los neurotípicos sin estimulación y con medicina (c-SC-m) ya que no hay ninguno.
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# Conteo con dplyr
+datos_counts <- datos %>%
+  group_by(Cluster, Clase) %>%    # agrupa por clúster y por clase
+  summarise(n = n(), .groups = "drop")  # cuenta cuántas observaciones hay en cada par
+
+# Visualización con ggplot2
+ggplot(datos_counts, aes(
+    x = factor(Cluster),    # clúster en X
+    y = n,                  # conteo en Y
+    fill = Clase             # nivel de la variable como color
+  )) +
+  geom_col(position = "dodge") +  # barras lado a lado por nivel
+  labs(
+    x = "Clúster",
+    y = "Número de observaciones",
+    fill = "Clases"
+  ) +
+  theme_minimal()
+
+```
+
+En el gráfico de barras del clúster 1, se observan que los resultados coinciden más o menos con los del gráfico de mosaico. Aunque hay sobrerrepresentación de ratones trisómicos con estimulación y sin medicina (t-CS-s) este no es tipo del que hay más cantidad. Los ratones de los que hay mayor cantidad son los neurotípicos sin estimulación y sin la medicina y también los ratones trisómicos, con estimulación y con la medicina. De estos dos tipos hay más o menos la misma cantidad en el clúster 1 y son justo lo contrario. Aunque se podría deducir que la estimulación y la medicina surgen efecto sobre ratones trisómicos ya que están en el mismo grupo que los neurotípicos a los que no se les ha aplicado nada, las otras clases también tienen una cantidad similar, por lo que no es concluyente. Además, en este clúster destaca como el tercer tipo del que hay más ratones, los trisómicos sin estimulación y sin medicina (t-SC-s).
+Tanto en el gráfico de barras del clúster 2 como en el del clúster 3, los resultados coinciden con lo anteriormente observado con los gráficos de mosaico.
+
+En cada clúster destacan unos tipos de ratones:
+-En el clúster 1 destacan los tipos c-SC-s, t-CS-m, t-CS-s y t-SC-s.
+-En el clúster 2 destacan los tipos c-SC-m y t-SC-m, t-SC-s.
+-En el clúster 3 destacan los tipos c-CS-m y c-CS-s.
+
+En conclusión, se pueden caraterizar los clústers:
+-El clúster 1 es un grupo bastante homogéneo pero destacan los ratones que no han tomado medicina, sin importar tanto ni el genotipo ni el comportamiento.
+-El clúster 2 está formado mayoritariamente por ratones que no han recibido estimulación para aprender, especialmente los que han tomado la medicina, sin importar el genotipo.
+-El clúster 3 destacan los ratones que han recibido estimulación para aprender, especificamente los que son neurotípicos.
+
+
+### Análisis con proteínas
+
+Se utilizará el PCA estudiado anteriormente, pero añadiéndole como variable suplementaria "Cluster", para estudiar los clústers sobre las expresiones de las proteínas.
+Se generará la tabla auxiliar de variables incluyendo su tipo.
+```{r}
 descRatonesClust = data.frame("variable" = colnames(datos),
                       "tipo" = c(rep("categorical",1),rep("numerical", 75),
                                  rep("binary", 3), rep("categorical", 3)), stringsAsFactors = FALSE)
@@ -239,74 +352,25 @@ descRatonesClust
 
 
 ```{r}
-library(dplyr)
-library(tidyr)
-library(ggplot2)
-
-# 1. Convertimos a formato largo
-datos_long <- datos %>%
-  pivot_longer(
-    cols      = c("Genotipo", "Tratamiento", "Comportamiento"),   # todas las columnas bin*
-    names_to  = "variable",           # nombre de la variable binaria
-    values_to = "valor"               # valor 0/1
-  )
-
-# 2. Graficamos con geom_bar (stat = "count" por defecto)
-ggplot(datos_long, aes(
-    x    = factor(variable),           # clusters en el eje X
-    fill = factor(valor)              # diferenciamos 0 vs. 1 por color
-  )) +
-  geom_bar(
-    position = "dodge"                # barras lado a lado por valor
-  ) +
-  facet_wrap(~ Cluster) +            # un panel separado por cada binaria
-  labs(
-    x    = "Clúster",
-    y    = "Número de observaciones",
-    fill = "Valor binario"
-  )
-
-```
-
-```{r}
-library(dplyr)
-library(ggplot2)
-
-# 1. Conteo con dplyr
-datos_counts <- datos %>%
-  group_by(Cluster, Clase) %>%    # agrupa por clúster y por nivel de la variable nominal
-  summarise(n = n(), .groups = "drop")  # cuenta cuántas observaciones hay en cada par
-
-# 3. Visualización con ggplot2
-ggplot(datos_counts, aes(
-    x    = factor(Cluster),    # clúster en X
-    y    = n,                  # conteo en Y
-    fill = Clase             # nivel de la variable como color
-  )) +
-  geom_col(position = "dodge") +  # barras lado a lado por nivel
-  labs(
-    x    = "Clúster",
-    y    = "Número de observaciones",
-    fill = "Clases"
-  ) +
-  theme_minimal()
-
-```
-En el clúster 1, la mayoría de los ratones son sin down y aprendiendo y el tratamiento no afecta. el cluster 2 ratones totalmente normales y los con down con estimulacion y la droga son parecidos la expresión proteica pero todas las clases tienen cantidad parecida en el cluster 2 por lo que no es concluyente. En el clúster 3, ratones sin down y con down los dos sin estimulacion y droga y otro sin estimulacion con down y sin droga.
-
-
-```{r}
 res.pca_clust = PCA(datos, scale.unit = FALSE, graph = FALSE, ncp = K_sin, 
               quali.sup = which(descRatonesClust$tipo == "categorical"),
               quanti.sup = which(descRatonesClust$tipo == "binary"))
 ```
 
+Se generarán los scores plots para observar los clústers y también los gráficos de variables para las proteínas. Para sacar las conclusiones se compararán los dos tipos de gráficos.
 
 ```{r}
 fviz_pca_ind(res.pca_clust, axes = c(1,2), geom = c("point"), repel = TRUE,
              labelsize = 2,
              habillage = "Cluster", addEllipses = TRUE)
 ```
+```{r}
+fviz_pca_var(res.pca_clust, axes = c(1,2), repel = TRUE, col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
+```
+
+Se observa que el clúster 2 se proyecta en la misma dirección que la proteína pCAMKII_N y el clúster 3 se proyecta en la misma dirección que las proteínas NR2A_N y ERK_N. Por otra parte, el clúster 1 se encuentra justo en la dirección contraria de los otros dos clústers y de las tres proteínas más significativas, principalmente en dirección contrario del clúster 3 y de las proteínas NR2A_N y ERK_N.
+El clúster 1 destaca por ratones sin medicina y está en la dirección contraria a las proteínas significativas, por lo que se puede deducir que estas proteínas se expresan debido a la medicina administrada. Además, el clúster 3 es el de los ratones neurotípicos y con estimulación, por lo que las proteínas NR2A_N y ERK_N podrían estar relacionadas con la estimulación, además de con la medicina. Por otra parte, el clúster 2 es el de los ratones sin estimulación y con medicina, por lo que se podría deducir que la proteína pCAMKII_N está relacionada con la falta de estimulación a parte de con la medicina.
 
 ```{r}
 fviz_pca_ind(res.pca_clust, axes = c(3,4), geom = c("point"), repel = TRUE,
@@ -314,3 +378,11 @@ fviz_pca_ind(res.pca_clust, axes = c(3,4), geom = c("point"), repel = TRUE,
              habillage = "Cluster", addEllipses = TRUE)
 ```
 
+No se observa una separación clara de los clústers ni en la componente 3 ni en la 4, por lo que no se pueden sacar conclusiones.
+
+```{r}
+fviz_pca_var(res.pca_clust, axes = c(3,4), repel = TRUE, col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
+```
+
+En conclusión, las proteínas NR2A_N y ERK_N están relacionadas con la medicina y la estimulación, mientras que la proteína pCAMKII_N está relacionada con la medicina y la falta de estimulación.
