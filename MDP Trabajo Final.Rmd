@@ -1,0 +1,885 @@
+---
+title: Estudio de Ratones de Laboratorio con Síndrome de Down y las Variables Moleculares
+  que Influyen en su Aprendizaje.
+author: Isabelle Archer, Nadal Bardisa Quintero, David Gilsanz Domínguez, Haoxiang
+  Liu, Chenyao Lin
+date: "`r Sys.Date()`"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(knitr)
+```
+
+Grupo: A2-20
+
+## Introducción
+
+Este trabajo aborda el análisis, entendimiento y desarrollo de conclusiones sobre los datos presentes en el fichero *Data_Cortex_Nuclear.xlsx*. El objetivo del estudio es encontar y modelar las relaciones entre variables moleculares y experimentales en ratones de laboratorio para identificar patrones asociados a su genotipo, tratamiento y comportamiento. Con este estudio se puede identificar las proteínas criticales al aprendizaje de un ratón con síndrome de Down.
+
+Se eligió la base de datos siguiendo algunas condiciones: se recomendaba tener 200 observaciones hasta 3000 observaciones, al menos 20 variables numéricas (discretas o continuas) o categóricas ordinales, y al menos una variable categórica nominal. La base de datos elegida se trata de ratones con síndrome de Down y el efecto de cierto psicofármaco en el desarrollo de su capacidad de aprendizaje. Hay 15 observaciones por ratón, contando con 72 sujetos distintos con representación equitativa en cuanto a recepción de fármaco o placebo y a su vez la presencia o falta del genotipo, para un total de 1080 observaciones. Contiene 82 variables en total: 77 variables numéricas continuas con la medida de las proteínas en los cerebros de los ratones, 3 variables binarias que representan el genotipo, el tratamiento, y el comportamiento, 1 variable categórica nominal que representa el conjunto de las variables binarias, y finalmente una variable identificador del ratón y el número de repetición de medida. 
+
+## Análisis Exploratorio
+```{r librerías preproceso, echo=FALSE, message=FALSE, warning=FALSE}
+library(openxlsx)
+library(dplyr)
+library(mice)
+```
+
+Se ha realizado una exploración de los datos a nivel visual y se detectaron y modificaron las variables que requieran una recodificación. Así pues se renombraron las variables *Genotype*, *Treatment*, *Behavior* y *Class* a *Genotipo*, *Tratamiento*, *Comportamiento* y *Clase*. Después, se transformaron las variables *Genotipo*, *Tratamiento* y *Comportamiento* a su formato binario numérico (convirtiendo los valores de estas variables a un formato entendible para las herramientas que se utilizan), indicando con valor 0 el valor de *Genotipo* "control" y 1 el valor "Ts65Dn", con 0 el valor de *Tratamiento* "Saline" y con 1 el valor "Memantine" y con 0 el valor de *Comportamiento* "S/C" y con 1 el valor "C/S".
+```{r Recodificación, echo=FALSE}
+
+ratones = read.xlsx("Data_Cortex_Nuclear.xlsx", sheet=1)
+
+ratones <- ratones %>%
+  rename(
+    "Genotipo" = Genotype,
+    "Tratamiento" = Treatment,
+    "Comportamiento" = Behavior,
+    "Clase" = class
+  )
+
+colEncodings <- list(
+  "Genotipo" = c("Control" = 0, "Ts65Dn" = 1),
+  "Tratamiento" = c("Saline" = 0, "Memantine" = 1),
+  "Comportamiento" = c("S/C" = 0, "C/S" = 1)
+)
+
+for (colName in names(colEncodings)) {
+  
+  encoding <- colEncodings[[colName]]
+  
+  encodedValues <- encoding[ratones[[colName]]]
+  
+  ratones[[colName]] <- as.numeric(encodedValues)
+}
+```
+Una vez realizadas las recodificaciones necesarias, se resumieron estadísticamente las variables numéricas, excluyendo las variables categóricas renombradas y recodificadas previamente. Se calculó la desviación típica, la media y el coeficiente de variación de cada variable para tener una primera idea de su dispersión relativa. Esto permitio detectar posibles inconsistencias o valores con alta variabilidad.
+
+Se analizó la presencia de valores faltantes en cada variable. Se calculó tanto el número absoluto como el porcentaje de valores ausentes por columna, y se construyó una tabla resumen. A partir de ella, se eliminaron del conjunto de datos aquellas variables que presentan un porcentaje igual o superior al 20% de valores faltantes. Se recalcularon las métricas para comprobar el estado actualizado de los datos. Posteriormente, se realizó el mismo análisis pero a nivel de fila, identificando los individuos con un porcentaje elevado de datos faltantes. Se mostró un resumen estadístico del número de valores ausentes por individuo, así como un gráfico de barras con la distribución porcentual de los casos. Aunque se identificaron las filas con más de un 20% de datos ausentes, en este bloque no se eliminaron.
+
+Para estudiar la estructura de los valores ausentes, se utilizó la función **md.pattern** del paquete **mice**, y se extrajeron únicamente las columnas con valores faltantes. Sobre estas variables, se aplicó un proceso de imputación múltiple utilizando el método por defecto del paquete, generando cinco datasets imputados a partir de una semilla fija para garantizar la reproducibilidad. Se extrajeron gráficos tipo stripplot para evaluar visualmente los resultados de la imputación en distintas variables seleccionadas, y se completaron los valores faltantes del conjunto original con los imputados de la segunda iteración. Finalmente, se compararon visualmente los valores antes y después de la imputación mediante diagramas de caja, y el nuevo conjunto de datos limpio se guardó en un archivo Excel para su uso posterior. Para ver los resultados de esta parte, ver el **anexo 1** Análisis exploratorio.
+
+```{r imputaciones, echo=FALSE, fig.width=8, fig.height=4}
+numNA = apply(ratones, 2, function(x) sum(is.na(x)))
+percNA = round(100*apply(ratones, 2, function(x) mean(is.na(x))), 2)
+tablaNAcol = data.frame("Variable" = colnames(ratones), numNA, percNA)
+
+colNA <- which(tablaNAcol$percNA >= 20 )
+ratones <- ratones[, -colNA]
+
+numNA = apply(ratones, 2, function(x) sum(is.na(x)))
+percNA = round(100*apply(ratones, 2, function(x) mean(is.na(x))), 2)
+tablaNAcol = data.frame("Variable" = colnames(ratones), numNA, percNA)
+
+numNA = apply(ratones, 1, function(x) sum(is.na(x)))
+percNA = round(100*apply(ratones, 1, function(x) mean(is.na(x))), 2)
+tablaNArow = data.frame(numNA, percNA)
+
+rowNA <- which(tablaNArow$percNA >= 20 )
+
+patrones = md.pattern(ratones, rotate.names = FALSE)
+
+ratonesNA <- ratones[,which(tablaNAcol$percNA > 0)]
+
+ratonesImp = mice(ratonesNA, seed = 123, m = 5, print = FALSE, method = NULL)
+
+p <- mice::stripplot(ratonesImp)
+
+colSelect <- c("ELK_N","Bcatenin_N","BAD_N","pCFOS_N","H3AcK18_N","EGR1_N")
+
+ratonesImp <- complete(ratonesImp, 2)
+ratones[, colnames(ratonesImp)] <- ratonesImp
+
+write.xlsx(ratones, "RatonesLimpios.xlsx", overwrite = TRUE)
+```
+
+Al final del pre-proceso y la limpieza de la base de datos, se obtuvo una base de datos sin valores faltantes y con las variables recodificadas adecuadamente para el análisis posterior.
+
+## Análisis PCA
+```{r librerias pca, echo=FALSE, message=FALSE, warning=FALSE}
+library(readxl)
+library(FactoMineR)
+library(factoextra)
+library(grid)
+library(gridExtra)
+```
+
+En este apartado se va realizar un PCA sobre los datos para reducir la gran cantidad de variables sobre proteínas que hay e intentar relacionar las dimensiones con las variables de proteínas. Además, ver como afectan el tipo de los ratones y comparar las clases de ratones. Se abre el fichero creado en el apartado anterior para trabajar sobre la base de datos limpia.
+```{r datos limpios, echo=FALSE}
+datos = read_excel("RatonesLimpios.xlsx", col_names = TRUE)
+datos = as.data.frame(datos)
+```
+ Se crea una tabla descripción que contenga los tipos de todas las variables para poder elegir variables por su tipo en el análisis. Se muestra las tres primeras filas.
+```{r tabla descripcion, echo=FALSE}
+descRatones = data.frame("variable" = colnames(datos),
+                      "tipo" = c("categorical", rep("numerical", 75),
+                                 rep("binary", 3), "categorical"), stringsAsFactors = FALSE)
+rownames(descRatones) = descRatones$variable
+```
+
+Se centran los datos numéricos de las proteínas con la función **scale** para poder trabajar con ellos.
+```{r centrar, echo=FALSE}
+datos[,2:76] <- scale(datos[,2:76], center = TRUE, scale = FALSE)
+```
+
+Para hacer el PCA habían dudas de si hacerlo escalando los datos o no. Se hizo el análisis paralelamente con los dos PCA y salían todos los resultados muy similares. Al final se centró el análisis en el PCA sin escalar ya que todos los valores de expresiones de proteínas parecen haberse medido en la misma unidad y no hay que restarle importancia a las proteínas con valores más altos. En el **anexo 2** se puede ver los resultados del PCA con escalado, pero a continuación todos los resultados son del PCA sin escalar los datos.
+
+Para crear el PCA primero se creó uno para graficar cuál es el número óptimo de dimensiones. Se crea el PCA auxiliar con la función **PCA** y hace el scree plot con la función **fviz_eig**. Según este gráfico decidió coger 4 dimensiones para el PCA basando en el criterio del codo, entonces se crea el nuevo PCA con número de compontentes 4. Además, en el PCA se añaden como variables suplementarias las variables categóricas *mouseID*, *Clase* y las tres variables binarias que indican el tipo de ratón (*Genotipo*, *Comportamiento* y *Tratamiento*). Para que sea un PCA sin escalado se específica la variable **scale.unit** a FALSE.
+```{r PCA sin escalar, echo=FALSE, fig.width=8, fig.height=4}
+res.pca = PCA(datos, scale.unit = FALSE, graph = FALSE, ncp = 10, 
+              quali.sup = which(descRatones$tipo == "categorical"),
+              quanti.sup = which(descRatones$tipo == "binaria"))
+eig.val <- get_eigenvalue(res.pca)
+VPmedio = 100 * (1/nrow(eig.val))
+fviz_eig(res.pca, addlabels = TRUE) +
+  geom_hline(yintercept=VPmedio, linetype=2, color="red")
+kable(eig.val[1:6,])
+K = 4
+res.pca2 = PCA(datos, scale.unit = FALSE, graph = FALSE, ncp = K, 
+              quali.sup = which(descRatones$tipo == "categorical"),
+              quanti.sup = which(descRatones$tipo == "binaria"))
+```
+### Anómalos
+Se hace un gráfico T2 de Hotelling para visualizar los anómalos. Se guarda en una variable el valor de la T2 y se calcula también los límites F95 y F99. Se crea un gráfico de la T2 con plot y se incluyen dos lineas que hacen referencia a los límites F95 y F99 con la función abline.
+```{r anomalos, echo=FALSE, fig.width=8, fig.height=4}
+misScores = res.pca2$ind$coord[,1:K]
+miT2 = colSums(t(misScores**2)/eig.val[1:K,1])
+I = nrow(datos)
+F95 = K*(I**2 - 1)/(I*(I - K)) * qf(0.95, K, I-K)
+F99 = K*(I**2 - 1)/(I*(I - K)) * qf(0.99, K, I-K)
+
+plot(1:length(miT2), miT2, type = "p", xlab = "Ratones", ylab = "T2")
+abline(h = F95, col = "orange", lty = 2, lwd = 2)
+abline(h = F99, col = "red3", lty = 2, lwd = 2)
+anomalas = which(miT2 > F95*2)
+```
+
+Para identificar a los anómalos que pueden entorpecer el análisis se establece el criterio de borrar todos aquellos que sobrepasan por 2 el límite F95. Se muestran las observaciones que sus T2 sobrepasan por dos el valor de F95 y se observa que la mayoría de estas se centran en una zona que va desde la observación 361 a la 376 aproximadamente. Tras revisar las observaciones se ve que eran todas observaciones de un mismo ratón, así que posteriormente se decide borrarlas ya que parecía un error de medición aislado.
+
+## PCA sin anómalos
+Ahora se procede a quitar todas las observaciones anómalas (observaciones cuyo T2 sobrepasen el umbral F95*2) y a crear el PCA sin escalado habiendo quitado ya los datos anómalos. Para su creación se vuelve a hacer primero el PCA auxiliar para ver si el scree plot cambia de alguna forma. Viendo que no ha cambiado demasiado se vuelven a coger cuatro dimensiones y se crea el PCA sin escalado definitivo. Agregando otra vez las variables categóricas y binarias como suplementarias.
+
+```{r pca sin anomalos, echo=FALSE, fig.width=8, fig.height=4}
+datos = datos[-anomalas,]
+res.pca = PCA(datos, scale.unit = FALSE, graph = FALSE, ncp = 10, 
+              quali.sup = which(descRatones$tipo == "categorical"),
+              quanti.sup = which(descRatones$tipo == "binaria"))
+eig.val <- get_eigenvalue(res.pca)
+VPmedio = 100 * (1/nrow(eig.val))
+K = 4
+res.pca2 = PCA(datos, scale.unit = FALSE, graph = FALSE, ncp = K, 
+              quali.sup = which(descRatones$tipo == "categorical"),
+              quanti.sup = which(descRatones$tipo == "binaria"))
+```
+
+## Anómalos sin T2 > F95*2
+Para ver el cambio en las observaciones anómalas se vuelve a graficar la T2 de Hotelling recalculando toda la T2 y los límites con el PCA definitivo. Se observa que ya no hay observaciones anómalas que puedan sesgar el modelo bajo el criterio establecido. Solo hay un par que sobrepasan un poco el límite F99, pero no parecen lo suficientemente graves como para borrarlas.
+```{r anomalos definitivos, echo=FALSE}
+misScores = res.pca2$ind$coord[,1:K]
+miT2 = colSums(t(misScores**2)/eig.val[1:K,1])
+I = nrow(datos)
+F95 = K*(I**2 - 1)/(I*(I - K)) * qf(0.95, K, I-K)
+F99 = K*(I**2 - 1)/(I*(I - K)) * qf(0.99, K, I-K)
+```
+
+## Gráficos individuos
+Para asegurarse de que el PCA no está sesgado por algún dato anómalo se decide hacer gráficos de individuos separando el grupo de observaciones anómalas incluyendo factor(T2 > F95) en habillage. De esta forma se verán dos grupos diferenciados de individuos, uno de observaciones anómalas y otro de observaciones típicas.
+
+```{r graficos individuos, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=4}
+p1 = fviz_pca_ind(res.pca2, axes = c(1,2), geom = c("point"),
+                  habillage = factor(miT2 > F95)) +
+  tune::coord_obs_pred()
+
+p2 = fviz_pca_ind(res.pca2, axes = c(3,4), geom = c("point"), 
+                  habillage = factor(miT2 > F95)) +
+  tune::coord_obs_pred() 
+  
+
+grid.arrange(p1,p2, nrow = 1)
+```
+
+En el gráfico se puede diferenciar entre los valores normales (FALSE) y los atípicos (TRUE). Se observa que justamente los ratones con valores anómalos (T2 mayor que F95) se van hacia los extremos sobre todo en las dimensiones 1 y 2, pero no excesivamente como para sesgar el modelo completamente por lo que se conservan estos valores anómalos moderados.
+
+Una vez ya se ha hecho el PCA definitivo habiendo tratado los datos anómalos se procede a su análisis mediante gráficos. En este apartado se verán las variables que más contribuyen en las dimensiones del PCA con el gráfico de variables usando la función **fviz_pca_var** y coloreando por las variables por su contribución a las dimensiones. Se crean dos gráficos de variables, uno para las dimensiones 1 y 2 (axes = c(1, 2)) y otro para las dimensiones 3 y 4 (axes = c(3, 4))
+
+```{r grafico variables, echo=FALSE, fig.width=8, fig.height=4}
+fviz_pca_var(res.pca2, axes = c(1,2), repel = TRUE, col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
+
+fviz_pca_var(res.pca2, axes = c(3,4), repel = TRUE,
+             col.var = "contrib", 
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             select.var = list("contrib"=40), labelsize = 2)
+```
+
+En los gráficos de variables se observa que la mayoría de variables tienen poca contribución, pero hay 2 o 3 que tienen mucha. Destacando la variable *pCAMKII_N* con las dimensiones 1 y 2 y la variable *pKCG_N* con las dimensiones 3 y 4. También se puede ver que la variable categórica o binaria con más contribución es *Comportamiento* en la dimensión 4. En el **anexo 3** se puede ver los gráficos de individuos por cada variable binaria. 
+
+En conclusión, las proteínas *pCAMKII_N*, *pKCG_N* y la variable *Comportamiento* son las variables importantes de la base de datos para distinguir los ratones.
+
+## Análisis Clustering
+
+El objetivo es realizar un análisis de agrupamiento de ratones con niveles de expresión de proteínas similares. 
+```{r librerias clustering, echo=FALSE, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(cluster)
+library(FactoMineR)
+library(factoextra)
+library(NbClust)
+library(clValid)
+library(grid)
+library(gridExtra)
+```
+
+### Selección de variables a utilizar y preparación de datos
+Para ello, se han seleccionado las variables de proteínas para realizar el clustering, que son todas las variables numéricas.
+
+```{r seleccionar variables clustering, echo=FALSE}
+datos_num = datos[,descRatones$variable[descRatones$tipo == "numerical"]]
+```
+
+### Medida de distancia
+Se utilizará la distancia euclídea como medida de distancia, porque se desea agrupar ratones con valores de expresión de proteínas similares y no con perfiles similares de proteínas. No se ha realizado ni un centrado ni un escalado de los datos porque las variables están en las mismas unidades. 
+
+```{r dist, fig.width=8, fig.height=4, echo=FALSE}
+midist <- get_dist(datos_num, stand = FALSE, method = "euclidean")
+fviz_dist(midist, show_labels = TRUE, lab_size = 0.3,
+          gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
+```
+
+A lo largo de la diagonal del mapa de calor se identifican bloques definidos de color azul, lo que indica la presencia de grupos de observaciones cercanas. Además, la separación entre estos bloques mediante zonas de color rojo refuerza la hipótesis de que los grupos están bien diferenciados. Los bloques mejor definidos son: un grupo grande con aproximadamente la mitad de las observaciones y dos grupos más pequeños cada uno con aproximadamente un cuarto de las observaciones.
+
+### Tendencia de agrupamiento
+```{r hopkins}
+set.seed(100)
+myN = c(20, 35, 50, 65)  # m
+myhopkins = NULL
+myseed = sample(1:1000, 10)
+for (i in myN) {
+  for (j in myseed) {
+    tmp = get_clust_tendency(data = datos_num, n = i, graph = FALSE, seed = j)
+    myhopkins = c(myhopkins, tmp$hopkins_stat)
+  }
+}
+summary(myhopkins)
+```
+
+El valor del estadístico de Hopkins está alrededor del 0.9, lo que indica que los datos tienen una tendencia a agruparse al estar cerca del 1.
+
+Habiendo observado el mapa de calor de distancias y el estadístico de Hopkins, se puede suponer que hay clústers. Por lo tanto, se procedió a probar varios métodos de clustering para encontrar el más adecuado. Se combinó el análisis del coeficiente de Silhouette (maximizando) con la variabilidad intra-cluster (minimizando) para elegir el número de grupos con el que se realizará el clustering. Para ver todos los métodos probados, se puede ver el **anexo 4** para  los métodos jerárquicos y el **anexo 5** para los métodos de partición. 
+
+### Selección del método de clustering
+Observando los coeficientes de Silhouette de los resultados del **anexo 5**, se elige el método de k-means con 3 clústers ya es el que tiene mayor Silhouette media y menor cantidad de observaciones con coeficientes negativos, es decir, mal clasificados.
+```{r kmeans, fig.width=8, fig.height=4}
+p1 = fviz_nbclust(x = datos_num, FUNcluster = kmeans, method = "silhouette", 
+             k.max = 10, verbose = FALSE) +
+  labs(title = "K-means")
+p2 = fviz_nbclust(x = datos_num, FUNcluster = kmeans, method = "wss", 
+             k.max = 10, verbose = FALSE) +
+  labs(title = "K-means")
+
+set.seed(100)
+clust4 <- kmeans(datos_num, centers = 3, nstart = 20)
+```
+### Estudio de los clústers
+Se añadirá la variable "cluster" a los datos utilizados para estudiar los clústers
+
+```{r cluster, echo=FALSE}
+datos$Cluster <- clust4$cluster
+```
+
+Se van a realizar gráficos de mosaico para analizar como se reparten las observaciones en las combinaciones de las tres variables binarias (*Genotipo*, *Tratamiento* y *Comportamiento*), también de la variable *Clase*, respecto de los tres clústers. El tamaño de cada bloque es proporcional a la frecuencia observada y su color refleja el grado de desviación respecto a lo que cabría esperar si ambas variables fueran independientes. Los residuos de Pearson, codificados en una escala de colores, indican la dirección y la intensidad de esa desviación: los tonos azules señalan un exceso de casos frente al modelo de independencia, mientras que los rojos indican un déficit. Cuanto más intenso es el color, mayor es la discrepancia. Por último, el p-valor de la prueba de bondad de ajuste resume en un solo indicador la solidez de esta asociación global; si el valor es pequeño (inferior a 0.05) se descarta la hipótesis nula de independencia y se confirma la existencia de una asociación estadísticamente significativa entre ambas variables.
+
+#### Análisis con Genotipo
+```{r mosaic genotipo, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=4}
+library(vcd)
+mosaic(~ Cluster + Genotipo, data = datos, shade = TRUE)
+```
+
+Dado que el valor p de la prueba de bondad de ajuste es menor a 0.05, se concluye que existe una relación significativa entre el *Cluster* y el *Genotipo*, por lo que se rechaza la hipótesis de independencia.
+Los clústers 1 y 2 no presentan desviaciones apreciables en la proporción de ratones trisómicos y ratones neurotípicos ya que para ambos genotipos los residuos de Pearson se mantienen cercanos a cero.
+Por otra parte, en el clúster 3 el residuo de Pearson para ratones neurotípicos (Genotipo = 0) se sitúa entre +2 y +3, lo que refleja que hay ligeramente más ratones neurotípicos que con trisomía.
+
+#### Análisis con Tratamiento
+```{r mosaic tratamiento, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=4}
+mosaic(~ Cluster + Tratamiento, data = datos, shade = TRUE)
+```
+
+El p-valor de la prueba de bondad de ajuste resulta ser inferior a 0.05, por lo que se rechaza la hipótesis de independencia entre *Cluster* y *Tratamiento*.
+En el clúster 1 se observa un residuo de Pearson entre +2 y +4 para los ratones que no tomaron la medicina (Tratamiento = 0), lo que indica una mayor presencia de estos ratones en comparación con los que sí que recibieron el tratamiento. En el clúster 2 ocurre lo opuesto, el residuo para ratones no tratados es de aproximadamente –4, señalando que hay déficit notable de ratones sin tratar. Por último, en el clúster 3 ambos bloques tienen residuos cercanos a 0, lo que sugiere que la proporción de ratones tratados y no tratados en ese grupo se ajusta a lo previsto bajo independencia.
+
+#### Análisis con Comportamiento
+```{r mosaic comportamiento, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=4}
+mosaic(~ Cluster + Comportamiento, data = datos, shade = TRUE)
+```
+
+Como el valor p de la prueba de bondad de ajuste es menor a 0.05, se descarta la hipótesis de que *Cluster* y *Comportamiento* sean independientes.
+En el clúster 1, tanto los ratones estimulados como los no estimulados presentan frecuencias observadas muy cercanas a las esperadas, lo que sugiere una distribución coherente con el supuesto de independencia. En el clúster 2, el bloque correspondiente a ratones sin estimulación (Comportamiento = 0) presenta un residuo de Pearson superior a +4, señalando un exceso muy pronunciado de ratones con ese comportamiento en comparación con lo esperado.
+Por último, en el clúster 3 sucede lo inverso. El bloque de ratones con estimulación (Comportamiento = 1) arroja un residuo por encima de +4, mostrando un exceso muy significativo de ratones estimulados a aprender.
+
+En el **anexo 6**, se ha realizado el mismo proceso con la variable *Clase* y los resultados son los mismos. En conclusión, se pueden caraterizar los clústers:
+-El clúster 1 es un grupo bastante homogéneo pero destacan los ratones que no han tomado medicina, sin importar tanto ni el genotipo ni el comportamiento.
+-El clúster 2 está formado mayoritariamente por ratones que no han recibido estimulación para aprender, especialmente los que han tomado la medicina, sin importar el genotipo.
+-El clúster 3 destacan los ratones que han recibido estimulación para aprender, especificamente los que son neurotípicos.
+
+#### Análisis con proteínas
+Se utilizará el PCA estudiado anteriormente, pero añadiéndole como variable suplementaria "Cluster", para estudiar los clústers sobre las expresiones de las proteínas. Se generará la tabla auxiliar de variables incluyendo su tipo.
+```{r tabla descripcion cluster, echo=FALSE}
+descRatonesClust = data.frame("variable" = colnames(datos),
+                      "tipo" = c("categorical", rep("numerical", 75),
+                                 rep("binary", 3), rep("categorical", 2)), stringsAsFactors = FALSE)
+rownames(descRatonesClust) = descRatonesClust$variable
+```
+
+```{r pca clustering, echo=FALSE}
+K_sin = 4
+res.pca_clust = PCA(datos, scale.unit = FALSE, graph = FALSE, ncp = K_sin, 
+              quali.sup = which(descRatonesClust$tipo == "categorical"),
+              quanti.sup = which(descRatonesClust$tipo == "binary"))
+```
+
+Se generarán los scores plots para observar los clústers y también los gráficos de variables para las proteínas. Para sacar las conclusiones se compararán los dos tipos de gráficos.
+
+```{r scoreplots pca clustering, echo=FALSE, fig.width=8, fig.height=4}
+fviz_pca_ind(res.pca_clust, axes = c(1,2), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Cluster", addEllipses = TRUE)
+
+fviz_pca_var(res.pca_clust, axes = c(1,2), repel = TRUE, col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
+```
+
+Se observa que el clúster 2 se proyecta en la misma dirección que la proteína *pCAMKII_N* y el clúster 3 se proyecta en la misma dirección que las proteínas *NR2A_N* y *ERK_N*. Por otra parte, el clúster 1 se encuentra justo en la dirección contraria de los otros dos clústers y de las tres proteínas más significativas, principalmente en dirección contrario del clúster 3 y de las proteínas *NR2A_N* y *ERK_N*.
+El clúster 1 destaca por ratones sin medicina y está en la dirección contraria a las proteínas significativas, por lo que se puede deducir que estas proteínas se expresan debido a la medicina administrada. Además, el clúster 3 es el de los ratones neurotípicos y con estimulación, por lo que las proteínas *NR2A_N* y *ERK_N* podrían estar relacionadas con la estimulación, además de con la medicina. Por otra parte, el clúster 2 es el de los ratones sin estimulación y con medicina, por lo que se podría deducir que la proteína *pCAMKII_N* está relacionada con la falta de estimulación a parte de con la medicina.
+
+No se observa una separación clara de los clústers ni en la componente 3 ni en la 4, por lo que no se pueden sacar conclusiones.
+
+En conclusión, las proteínas *NR2A_N* y *ERK_N* están relacionadas con la medicina y la estimulación, mientras que la proteína *pCAMKII_N* está relacionada con la medicina y la falta de estimulación.
+
+## Análisis PLS-DA
+```{r librerias pls, echo=FALSE}
+library(ropls)
+library(viridis)
+library(dplyr)
+library(ggplot2)
+library(ggrepel)
+library(readxl)
+library(caret)
+```
+Se ha aplicado un modelo PLS-DA (Partial Least Squares Discriminant Analysis) para clasificar a los ratones según su genotipo (síndrome de Down o Control) a partir de variables de expresión. Esta técnica permite detectar estructuras latentes que explican la separación entre grupos y evaluar su capacidad predictiva mediante validación cruzada.
+
+Los resultados del modelo (ver Anexo) muestran que se explica el 80% de la variabilidad de la variable Genotipo (R2Y = 0.80) y que la capacidad predictiva alcanza un valor elevado (Q2 = 0.76). El error medio de estimación es bajo (RMSEE = 0.23), y el test de permutación indica que el modelo es estadísticamente significativo (pR2Y = 0.05, pQ2 = 0.05). El modelo estima que el número óptimo de componentes es en un principio 8, aunque luego se corroborará con los gráficos.
+
+Es por ellos que el siguiente gráfico, que representa la evolución de R2Y y Q2 en función del número de componentes, se observa que ambos valores aumentan hasta estabilizarse en el componente 10, lo que justifica su selección como número óptimo:
+```{r pls, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=4}
+ratones = read_excel("RatonesLimpios.xlsx")
+
+# Como genotipo es num hay que pasarlo a factor
+ratones$Genotipo = factor(ratones$Genotipo)
+
+# Se elimina las variables que no van a ser las predictoras (las ult. cols)
+X = subset(ratones, select = -c(Genotipo, Tratamiento, Comportamiento, Clase))
+y = ratones$Genotipo
+
+set.seed(100)
+
+trainFilas = createDataPartition(y, p = 0.8, list = FALSE)
+
+Xtrain = X[trainFilas, ]
+Xtest = X[-trainFilas, ]
+ytrain = y[trainFilas]
+ytest = y[-trainFilas]
+
+#Quitar pimera col
+
+Xtrain = Xtrain[, -1]
+Xtest = Xtest[, -1]
+
+maxNC = 10
+myplsda = opls(x = Xtrain, y = ytrain, predI = maxNC, crossvalI = 10, 
+               scaleC = "standard", fig.pdfC = "none")
+
+plot(1:maxNC, myplsda@modelDF$`R2Y(cum)`, type = "o", pch = 16, col = "blue3",
+     lwd = 2, xlab = "Componentes", ylab = "", ylim = c(0.4,0.8),
+     main = "PLS-DA: Síndrome de Down")
+lines(1:maxNC, myplsda@modelDF$`Q2(cum)`, type = "o", pch = 16, col = "red3", lwd = 2)
+abline(h = 0.5, col = "red3", lty = 2)
+legend("bottomleft", c("R2Y", "Q2"), lwd = 2, col = c("blue3", "red3"), bty = "n")
+```
+
+Para facilitar la interpretación visual, se ajustó de nuevo el modelo utilizando únicamente dos componentes. Esta decisión se basa en que dos componentes son suficientes para representar los datos en un espacio bidimensional, lo cual permite analizar gráficamente la separación entre grupos. A continuación, se muestra el código que genera los gráficos de diagnóstico automáticos:
+```{r pls 2, echo=FALSE, message=FALSE, warning=FALSE}
+myplsda = opls(x = Xtrain, y = ytrain,
+               predI = 2, crossvalI = 10,
+               permI = 20, scaleC = "standard")
+
+```
+
+En esta sección se presentan los resultados del modelo PLS-DA ajustado con únicamente dos componentes, con el objetivo de facilitar la interpretación visual de la estructura de los datos. Aunque el modelo completo estima como óptimos más componentes, se ha decidido representar gráficamente solo los dos primeros para proyectar los individuos en un espacio bidimensional que permita observar de forma clara la separación entre los grupos Down y Control.
+
+Como consecuencia del uso de únicamente dos componentes, los valores de R2Y y Q2 obtenidos en esta sección son menores que los del modelo completo, lo cual es esperable ya que no se está capturando toda la variabilidad posible. Aun así, los valores obtenidos (R2Y = 0.514 y Q2 = 0.502) siguen siendo aceptables y reflejan que incluso con solo dos componentes el modelo conserva una capacidad predictiva moderada. El test de permutación confirma que estos resultados son estadísticamente significativos (pR2Y = 0.05, pQ2 = 0.05), lo que respalda la validez del modelo.
+
+El gráfico de scores proyecta a los individuos en el plano definido por las componentes t1 y t2, y permite observar una separación clara entre los grupos Down y Control, lo que indica que las variables de expresión seleccionadas permiten distinguir entre ambos genotipos incluso en un espacio reducido. Por su parte, el gráfico de observaciones (observation diagnostics) ayuda a detectar posibles valores atípicos mediante la evaluación de la distancia ortogonal y la distancia de scores. En principio estos atípicos son aceptados ya que anteiormente en el estudio has sido tratados.
+
+El análisis PLS-DA aplicado a los datos de expresión de los ratones ha demostrado ser una herramienta eficaz para discriminar entre los genotipos Down y Control. El modelo completo, ajustado con ocho componentes, presentó una elevada capacidad explicativa (R2Y ≈ 0.79) y predictiva (Q2 ≈ 0.76), con significación estadística validada mediante test de permutación. Además, aunque la representación gráfica se ha realizado utilizando únicamente los dos primeros componentes, esta ha permitido visualizar de forma clara la separación entre los grupos. En conjunto, los resultados indican que las variables de expresión consideradas contienen información relevante para diferenciar los genotipos y que el modelo PLS-DA es apropiado para abordar este tipo de problema de clasificación supervisada.
+
+## Métodos Opcionales
+### Análisis factorial de correspondencias (simple y múltiple):
+El análisis factorial de correspondencias (AFC) es un método descriptivo no supervisado que analiza las relaciones entre **variables categóricas**. El AFC simple se aplica a una tabla de contingencia cruzada de dos variables categóricas mientras que el AFC múltiple se aplica a una base de datos compuesta por múltiples variables categóricas. Una ventaja de este método es que permite visualizar asociaciones entre distintos grupos de ratones según sus características categóricas, reduciendo la dimensionalidad del espacio. Algo inconveniente es la necesidad de convertir las variables numéricas a categóricas si quiere incluirlas en el análisis, discretizándolas. En este caso, la base de datos de los ratones tienen cuatro variables categóricas: *Genotipo*, *Tratamiento*, *Comportamiento* y *Clase*, y se podría aplicar un AFC múltiple a estas variables.
+
+### Reglas de asociación:
+Las reglas de asociación son un método no supervisado para encontrar patrones frecuentes en la base de datos y permite conocer el comportamiento general de los individuos. Es necesario trabajar con **variables binarios**, entonces debería binarizar las variables numéricas de una base de datos, lo que puede reducir la información o crear demasiadas variables, introduciendo ruido. En esta base de datos, se podría binarizar las variables numéricas, convertiéndolas en transacciones, y aplicar el algoritmo apriori con soporte y confianza.
+
+### Análisis discriminante:
+El análisis discriminate es un método supervisado para clasificar un individuo en su clase más cercana, buscando un conjunto de reglas discriminantes. Permite estudiar la contribución de cada variable, lo que ayuda en la explicación y significación. Algo inconveniente es que supone normalidad y homogeneidad de las variables para aplicar el método. Además puede ser sensible a valores atípicos. En este caso, se podría aplicar para predecir la *Clase* de un ratón en función de sus medidas de las proteínas. 
+
+## Conclusiones del Estudio
+Se ha investigado cómo determinadas proteinas pueden estar relacionadas con la capacidad de aprendizaje en ratones con síndrome de Down. Para ello, se ha trabajado con una base de datos detallada sobre la expresión de proteínas cerebrales en estos animales, considerando además factores como el tipo de tratamiento farmacológico recibido y la estimulación cerebral. Mediante análisis de componentes principales han destacado algunas proteínas cuya expresión parece especialmente relevante, como *pCAMKII_N*, *pKCG_N*, *NR2A_N* y *ERK_N*. Estas podrían estar implicadas en los mecanismos que afectan al aprendizaje, sobre todo en relación con la administración de memantina y los estímulos dirigidos a potenciar esta capacidad. Sin embargo, no es concluyente la efectividad de este fármaco. El análisis de clustering ha revelado que los ratones pueden dividirse en tres grupos bien diferenciados, lo cual respalda la idea de que existen perfiles distintos según las condiciones experimentales. Por otra parte, el modelo PLS-DA ha demostrado que es posible distinguir con bastante precisión entre ratones con y sin trisomía basándose únicamente en las expresiones proteicas, lo que refuerza el valor de esta información para fines de clasificación y diagnóstico. Es por ello que los resultados sugieren que hay diferencias relevantes a nivel molecular entre los distintos grupos de ratones, y que estas podrían estar influyendo en su comportamiento y capacidad de aprendizaje. Además en este estudio se han aplicado un conjunto de técnicas estadísticas variadas, desde el preprocesamiento de los datos hasta modelos supervisados y no supervisados, lo que muestra la potencia de análisis de la ciencia de datos en los campos como la biología.
+
+
+## Anexos
+### Anexo 1: Análisis exploratorio
+
+```{r Imputación anexo, echo=FALSE, message=FALSE, warning=FALSE}
+
+ratones = read.xlsx("Data_Cortex_Nuclear.xlsx", sheet=1)
+
+ratones <- ratones %>%
+  rename(
+    "Genotipo" = Genotype,
+    "Tratamiento" = Treatment,
+    "Comportamiento" = Behavior,
+    "Clase" = class
+  )
+
+colEncodings <- list(
+  "Genotipo" = c("Control" = 0, "Ts65Dn" = 1),
+  "Tratamiento" = c("Saline" = 0, "Memantine" = 1),
+  "Comportamiento" = c("S/C" = 0, "C/S" = 1)
+)
+
+for (colName in names(colEncodings)) {
+  encoding <- colEncodings[[colName]]
+  encodedValues <- encoding[ratones[[colName]]]
+  ratones[[colName]] <- as.numeric(encodedValues)
+}
+
+summary(ratones[,2:(ncol(ratones)-4)])
+
+mySD = apply(ratones[,2:(ncol(ratones)-4)], 2, sd,na.rm=TRUE)
+myMU = colMeans(ratones[,2:(ncol(ratones)-4)], na.rm = TRUE)
+myCV = mySD/myMU
+sort(myCV)
+
+numNA = apply(ratones, 2, function(x) sum(is.na(x)))
+percNA = round(100*apply(ratones, 2, function(x) mean(is.na(x))), 2)
+tablaNAcol = data.frame("Variable" = colnames(ratones), numNA, percNA)
+
+colNA <- which(tablaNAcol$percNA >= 20 )
+ratones <- ratones[, -colNA]
+
+numNA = apply(ratones, 2, function(x) sum(is.na(x)))
+percNA = round(100*apply(ratones, 2, function(x) mean(is.na(x))), 2)
+tablaNAcol = data.frame("Variable" = colnames(ratones), numNA, percNA)
+
+numNA = apply(ratones, 1, function(x) sum(is.na(x)))
+percNA = round(100*apply(ratones, 1, function(x) mean(is.na(x))), 2)
+tablaNArow = data.frame(numNA, percNA)
+
+summary(tablaNArow$numNA)
+
+barplot(table(tablaNArow$percNA), xlab = "% Valores faltantes", ylab = "Número de casos", main = "Ratones")
+
+rowNA <- which(tablaNArow$percNA >= 20 )
+
+patrones = md.pattern(ratones, rotate.names = FALSE)
+
+ratonesNA <- ratones[,which(tablaNAcol$percNA > 0)]
+
+ratonesImp = mice(ratonesNA, seed = 123, m = 5, print = FALSE, method = NULL)
+
+p <- mice::stripplot(ratonesImp)
+
+tablaNAcol[tablaNAcol$percNA > 1,]
+
+colSelect <- c("ELK_N","Bcatenin_N","BAD_N","pCFOS_N","H3AcK18_N","EGR1_N")
+
+for (i in colSelect){
+  print(p[which(colnames(ratonesNA) == i)])
+}
+
+ratonesImp <- complete(ratonesImp, 2)
+ratones[, colnames(ratonesImp)] <- ratonesImp
+
+par(mfrow = c(2,4))
+for (i in colSelect) {
+  boxplot(list("antes" = ratonesNA[,which(colnames(ratonesNA) == i)], "después" = ratonesImp[,which(colnames(ratonesNA) == i)]), 
+          col = heat.colors(2), main = colnames(ratonesNA)[i], las = 2)
+}
+```
+
+### Anexo 2: PCA con escalado
+
+En el PCA con escalado se aplica el mismo procedimiento que al PCA sin escalar. Se crea el PCA auxiliar para hacer el scree plot y al observarlo se escogen también 4 dimensiones para el PCA escalado. En este también se añaden como variables suplementarias todas las variables categóricas y binarias.
+
+```{r pca escalado, echo=FALSE, message=FALSE, warning=FALSE}
+datos_con = read_excel("RatonesLimpios.xlsx", col_names = TRUE)
+datos_con = as.data.frame(datos_con)
+datos_con[,2:76] <- scale(datos_con[,2:76], center = TRUE, scale = FALSE)
+
+res.pca_con = PCA(datos_con, scale.unit = TRUE, graph = FALSE, ncp = 10, 
+              quali.sup = which(descRatones$tipo == "categorical"),
+              quanti.sup = which(descRatones$tipo == "binaria"))
+eig.val_con <- get_eigenvalue(res.pca_con)
+VPmedio_con = 100 * (1/nrow(eig.val_con))
+fviz_eig(res.pca_con, addlabels = TRUE) +
+  geom_hline(yintercept=VPmedio_con, linetype=2, color="red")
+kable(eig.val_con[1:6,])
+K_con = 4
+res.pca_con2 = PCA(datos, scale.unit = TRUE, graph = FALSE, ncp = K_con, 
+              quali.sup = which(descRatones$tipo == "categorical"),
+              quanti.sup = 77:79)
+```
+
+#### Anomalos con escalar
+
+En el caso del PCA escalado se grafica también el T2 de Hotelling. Se guarda la T2 del PCA con escalado en otra variable y se vuelven a calcular los límites F95 y F99. Se plotea otra vez el gráfico incluyendo las dos líneas correspondientes a los límites.
+```{r anomalos con escalado, echo=FALSE, message=FALSE, warning=FALSE}
+misScores_con = res.pca_con2$ind$coord[,1:K_con]
+miT2_con = colSums(t(misScores_con**2)/eig.val_con[1:K_con,1])
+I_con = nrow(datos)
+F95_con = K_con*(I_con**2 - 1)/(I_con*(I_con - K_con)) * qf(0.95, K_con, I-K_con)
+F99_con = K_con*(I_con**2 - 1)/(I_con*(I_con - K_con)) * qf(0.99, K_con, I-K_con)
+
+plot(1:length(miT2_con), miT2_con, type = "p", xlab = "Ratones", ylab = "T2")
+abline(h = F95_con, col = "orange", lty = 2, lwd = 2)
+abline(h = F99_con, col = "red3", lty = 2, lwd = 2)
+```
+
+```{r anomalos con, echo=FALSE, message=FALSE, warning=FALSE}
+anomalas_con = which(miT2_con > F95_con)
+anomalas_con
+```
+
+Usando el mismo criterio para mostrar los anómalos extremos (>F95*2) se puede ver que escalando hay muchos menos. Existen solo 3 observaciones anómalas que también estaban en el PCA sin escalado, correspondiendo las tres al mismo ratón.
+
+#### PCA con escalar (sin anómalos)
+
+Se crea también el PCA escalado sin datos anómalos. Para ello se usa el mismo procedimiento. Se crea el scree plot con un PCA auxiliar y se puede ver que no cambia demasiado, por ello se crea el PCA escalado definitivo con 4 dimensiones también.
+
+```{r pca escalado sin anom, echo=FALSE, message=FALSE, warning=FALSE}
+res.pca_con = PCA(datos, scale.unit = TRUE, graph = FALSE, ncp = 10, 
+              quali.sup = which(descRatones$tipo == "categorical"),
+              quanti.sup = which(descRatones$tipo == "binaria"))
+eig.val_con <- get_eigenvalue(res.pca_con)
+VPmedio_con = 100 * (1/nrow(eig.val_con))
+fviz_eig(res.pca_con, addlabels = TRUE) +
+  geom_hline(yintercept=VPmedio_con, linetype=2, color="red")
+kable(eig.val_con[1:6,])
+K_con = 4
+res.pca_con2 = PCA(datos, scale.unit = TRUE, graph = FALSE, ncp = K_con, 
+              quali.sup = which(descRatones$tipo == "categorical"),
+              quanti.sup = 77:79)
+```
+
+#### Graficos individuos con escalar
+
+Se crea el mismo gráfico de individuos separando las observaciones anómalas incluyendo factor(T2 > F95) en habillage.
+
+```{r graficos individuos con escalado, echo=FALSE, message=FALSE, warning=FALSE}
+p1_con = fviz_pca_ind(res.pca_con2, axes = c(1,2), geom = c("point"),
+                  habillage = factor(miT2_con > F95_con)) +
+  tune::coord_obs_pred()
+
+p2_con = fviz_pca_ind(res.pca_con2, axes = c(3,4), geom = c("point"), 
+                  habillage = factor(miT2_con > F95_con)) +
+  tune::coord_obs_pred() 
+  
+grid.arrange(p1_con,p2_con, nrow = 1)
+```
+
+En el gráfico con escalado se ve que los que tienen valores atípicos no se separan tanto con los valores normales como en el gráfico sin escalar, pero se pueden diferenciar un poco aún.
+
+#### Grafico variables con escalar
+
+```{r grafico variables con escalado, echo=FALSE}
+fviz_pca_var(res.pca_con2, axes = c(1,2), repel = TRUE, col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
+
+fviz_pca_var(res.pca_con2, axes = c(3,4), repel = TRUE, col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
+```
+
+
+
+### Anexo 3: Gráfico individuos por variable binaria
+
+En este apartado se van a realizar gráficos de individuos agrupados por las diferentes variables binarias que hay en la base de datos, el propósito es ver si las dimensiones resultantes del PCA separan a los ratones por tipos (*Genotipo*, *Comportamiento*, *Tratamiento* o *Clase*).
+
+Para ello se crearán gráficos de individuos con una variable binaria o categórica en el campo habillage, además se añadirán elipses en los grupos para ver mejor su distribución. Para cada variable que se desee estudiar se harán dos gráficos, uno para las dimensiones 1 y 2 y otro para las dimensiones 3 y 4.
+
+#### Tratamiento
+Primero, se ve si hay diferencia entre los ratones que se tratan con la droga memantina para recuperar la capacidad de aprender o no. Se añade en habillage la variable "Tratamiento".
+
+```{r grafico individuos tratamiento, echo=FALSE}
+fviz_pca_ind(res.pca2, axes = c(1,2), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Tratamiento", addEllipses = TRUE)
+
+fviz_pca_ind(res.pca2, axes = c(3,4), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Tratamiento", addEllipses = TRUE)
+```
+
+En el PCA ninguna de las dimensiones separa los ratones según su tratamiento. En todas las dimensiones los grupos de ratones que se tratan y que no se tratan se solapan en gran parte de la elipse. Por tanto, con este análisis no se ve un efecto significativo del tratamiento con la droga memantina en general.
+
+#### Genotipo
+Después, se ve si habían diferencias entre las proteínas de ratones trisómicos (con síndrome de Down) y control. Para ello se agrega en el campo habillage la variable *Genotipo*.
+
+```{r grafico variables Genotipo, echo=FALSE}
+fviz_pca_ind(res.pca2, axes = c(1,2), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Genotipo", addEllipses = TRUE)
+
+fviz_pca_ind(res.pca2, axes = c(3,4), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Genotipo", addEllipses = TRUE)
+```
+
+En los gráficos del PCA no se ve diferencias significativas entre los ratones trisómicos y control. En todas las dimensiones las distribuciones de ambos grupos se solapan. Al menos con este análisis no se ven diferencias entre la expresión de proteínas de ratones trisómicos y control.
+
+#### Comportamiento
+A continuación, se visualiza los grupos de ratones según si estaban estimulados para aprender o no. Se agrega la variable *Comportamiento* en habillage.
+
+```{r grafico variables comportamiento, echo=FALSE}
+fviz_pca_ind(res.pca2, axes = c(1,2), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Comportamiento", addEllipses = TRUE)
+
+fviz_pca_ind(res.pca2, axes = c(3,4), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Comportamiento", addEllipses = TRUE)
+```
+
+En los gráficos sin escalado se puede ver una diferencia entre la distribución de los individuos según su comportamiento. La segunda componente separa bastante bien los ratones según si están inducidos para aprender o no. Los ratones que están estimulados para aprender tienen valores más altos en la dimensión 2 que los que no están estimulados para aprender. Con este análisis se ha visto que hay una diferencia significativa en la expresión de los ratones según si se les estimula para aprender o no.
+
+#### Clase
+Posteriormente, se quiere comparar todas las clases conjuntamente. Para ello se añade la variable *Clase* en habillage.
+
+```{r grafico variables Clase, echo=FALSE}
+fviz_pca_ind(res.pca2, axes = c(1,2), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Clase", addEllipses = TRUE)
+
+fviz_pca_ind(res.pca2, axes = c(3,4), geom = c("point"), repel = TRUE,
+             labelsize = 2,
+             habillage = "Clase", addEllipses = TRUE)
+```
+
+En el gráfico por clases de ratones del PCA se observa que no se separan las clases de ratones en ninguna de las dimensiones. Todas las elipses de las seis clases se solapan bastante sin ninguna distribución aparente.
+
+#### Comparación entre clases t-CS-m y t-CS-s
+Para ver si tiene efecto la droga memantina para devolverle a los ratones con down la capacidad de aprender en este apartado se comparan las clases de los ratones trisómicos, que están estimulados para aprender y que reciben memantina con ratones trisómicos, que están estimulados para aprender y no reciben memantina (*t-CS-m* con *t-CS-s*). Para ello se usa el campo **select.ind** poniendo solo las filas de observaciones que tienen una de esas dos clases.
+
+```{r comparación clases trisómico-aprende-memantina y trisómico-aprende-sinMemantina, echo=FALSE}
+clases <- res.pca2$call$X$Clase
+
+ind_deseados <- which(clases %in% c("t-CS-m", "t-CS-s"))
+ind_names <- rownames(res.pca2$ind$coord)[ind_deseados]
+
+fviz_pca_ind(res.pca2, 
+             axes = c(1,2), 
+             geom = "point", 
+             repel = TRUE,
+             labelsize = 2,
+             habillage = clases,
+             addEllipses = TRUE,
+             select.ind = list(name = ind_names))
+fviz_pca_ind(res.pca2, 
+             axes = c(3,4), 
+             geom = "point", 
+             repel = TRUE,
+             labelsize = 2,
+             habillage = clases,
+             addEllipses = TRUE,
+             select.ind = list(name = ind_names))
+```
+
+En el PCA no se ve que se separen estas dos clases, muchas de sus observaciones se solapan. Por tanto, no se logra ver un efecto significativo de la droga memantina que restaure la capacidad de aprender a los ratones con síndrome de Down.
+
+
+### Anexo 4: Clustering Métodos Jerárquicos
+
+Se va a probar varios métodos jerárquicos para elegir el método más adecuado para aplicar el clustering. Se combina el análisis del coeficiente de Silhouette (maximizando) con la variabilidad intra-cluster (minimizando) para elegir el número de grupos con el que se realizará el clustering.
+
+#### Método de Ward
+
+Se obtendrá el número de clusters óptimo para el método de Ward.
+
+```{r koptJERward, fig.width=8, fig.height=4, echo=FALSE}
+p1 = fviz_nbclust(x = datos_num, FUNcluster = hcut, method = "silhouette", 
+                  hc_method = "ward.D2", k.max = 10, verbose = FALSE, 
+                  hc_metric = "euclidean") + labs(title = "Num. optimo clusters")
+p2 = fviz_nbclust(x = datos_num, FUNcluster = hcut, method = "wss", 
+                  hc_method = "ward.D2", k.max = 10, verbose = FALSE, 
+                  hc_metric = "euclidean") + labs(title = "Num. optimo clusters")
+grid.arrange(p1, p2, nrow = 1)
+```
+
+Los resultados para el coeficiente Silhouette indican que el número óptimo de clusters es 2 clusters. Si observa la variabilidad intra-cluster, aún está bastante alta. Si elige el segundo óptimo, 3 clusters, la variabilidad intra-cluster ya baja bastante y, además, parece el punto en el que se crea el codo. Si coge el número de clusters como 4, baja la variabilidad intra-cluster pero también baja bastante el coeficiente Silhouette. Por tanto, se fijará el número de clusters en 3.
+
+Se crea a continuación los 3 clusters con el método de Ward. No se generará el dendrograma debido a que el número de observaciones es elevado y no se podría observar claramente qué observaciones hay en cada clúster.
+
+```{r ward, fig.width=8, fig.height=6, echo=FALSE}
+clust1 <- hclust(midist, method="ward.D2")
+grupos1 <- cutree(clust1, k=3)
+table(grupos1)
+```
+
+Se observan dos clústers que tienen más o menos la misma cantidad de observaciones y otro clúster que tiene más observaciones que los otros dos.
+
+#### Método de la media
+
+Ahora se estima el número óptimo de clusters para el método de la media.
+
+```{r koptJERmedia, fig.width=8, fig.height=4}
+p1 = fviz_nbclust(x = datos_num, FUNcluster = hcut, method = "silhouette", 
+                  hc_method = "average", k.max = 10, verbose = FALSE, 
+                  hc_metric = "euclidean") + labs(title = "Num. optimo clusters")
+p2 = fviz_nbclust(x = datos_num, FUNcluster = hcut, method = "wss", 
+                  hc_method = "average", k.max = 10, verbose = FALSE, 
+                  hc_metric = "euclidean") + labs(title = "Num. optimo clusters")
+grid.arrange(p1, p2, nrow = 1)
+```
+
+En la suma de cuadrados intra-cluster, se observan 3 codos. El primero codo es el 2 y coincide con el número óptimo del coeficiente de Silhouette. Sin embargo, la suma de cuadrados intra-cluster es demasiado elevada para 2 clusters. El segundo codo es el 4 bajando significativamente la suma de cuadrados intra-cluster y coincidiendo con el segundo número óptimo del coeficiente de Silhouette. Y, por último, el tercer codo es el 7 bajando aún más la suma de cuadrados intra-cluster y coincidiendo con el tercer número óptimo del coeficiente de Silhouette, el cual es prácticamente igual que el segundo óptimo. Sin embargo, teniendo en cuenta que hay 72 ratones, cada uno con 15 observaciones, 7 clústers es demasiado, por lo tanto se eligirá 4 clústers.
+
+```{r media, fig.width=8, fig.height=6, echo=FALSE}
+clust2 <- hclust(midist, method="average")
+grupos2 = cutree(clust2, k = 4)
+table(grupos2)
+```
+
+Sin embargo, cuando se observa el dendrograma y el número de observaciones por clúster, se observa que uno de los clústers que proporciona este método tiene una sola observación, siendo esta una cantidad demasiado reducida. Por lo tanto, se descartará este método.
+
+#### Método Centroide
+Ahora se estimará el número óptimo de clusters para el método centroide.
+
+```{r koptJERcentroide, fig.width=8, fig.height=4, echo=FALSE}
+p1 = fviz_nbclust(x = datos_num, FUNcluster = hcut, method = "silhouette", 
+                  hc_method = "centroid", k.max = 10, verbose = FALSE, 
+                  hc_metric = "euclidean") + labs(title = "Num. optimo clusters")
+p2 = fviz_nbclust(x = datos_num, FUNcluster = hcut, method = "wss", 
+                  hc_method = "centroid", k.max = 10, verbose = FALSE, 
+                  hc_metric = "euclidean") + labs(title = "Num. optimo clusters")
+grid.arrange(p1, p2, nrow = 1)
+```
+
+Observando el coeficiente de Silhouette, el número optimo de clústers es 2, mientras que con la suma de cuadrados intra-clúster se observa un codo con 5 clústers. Sin embargo, con 5 clústers el coeficiente de Silhouette es prácticamente 0. A partir del 2, el coeficiente de Silhouette baja significativamente y con 2 la suma de cuadrados intra-clúster baja un poco, por lo tanto se elegirán 2 clústers.
+
+```{r centroid, fig.width=8, fig.height=6, warning=FALSE, echo=FALSE}
+clust3 <- hclust(midist, method="centroid")
+grupos3 = cutree(clust3, k = 2)
+table(grupos3)
+```
+
+El método de la media y el método centroide sucede el mismo problema, también se genera un clúster con una sola observación. En este caso, el número óptimo de clusters es 2 y los clusters son más desequilibrados que en el caso del método de la media. Por lo tanto, también se descarta este método.
+
+
+### Anexo 5: Clustering Métodos de Partición
+
+#### K-means
+```{r kmeans anexo, fig.width=8, fig.height=4}
+p1 = fviz_nbclust(x = datos_num, FUNcluster = kmeans, method = "silhouette", 
+             k.max = 10, verbose = FALSE) +
+  labs(title = "K-means")
+p2 = fviz_nbclust(x = datos_num, FUNcluster = kmeans, method = "wss", 
+             k.max = 10, verbose = FALSE) +
+  labs(title = "K-means")
+grid.arrange(p1, p2, nrow = 1)
+```
+
+En el coeficiente de Silhouette, el número óptimo de clústers es 3. Esto coincide con el codo formado en la suma de cuadrados intra-clúster. Por lo que se eligen 3 clústers.
+
+```{r kmeans clust anexo, echo=FALSE}
+set.seed(100)
+clust4 <- kmeans(datos_num, centers = 3, nstart = 20)
+table(clust4$cluster)
+```
+
+Con el método de k-means, se observa una distribución equilibrada entre los clústers formados.
+
+#### PAM ((Partitioning Around Medoids)
+```{r pam, fig.width=8, fig.height=4}
+p1 = fviz_nbclust(x = datos_num, FUNcluster = pam, method = "silhouette", 
+             k.max = 10, verbose = FALSE) +
+  labs(title = "Numero optimo de clusters")
+p2 = fviz_nbclust(x = datos_num, FUNcluster = pam, method = "wss", 
+             k.max = 10, verbose = FALSE) +
+  labs(title = "Numero optimo de clusters")
+grid.arrange(p1, p2, nrow = 1)
+```
+
+Se observa que con 3 clústers el coeficiente de Silhouette es muy similar que con 2 clústers, el número óptimo. Además, 3 clústers coincide con el codo más o menos visible de la suma de cuadrados intra-cluster. Por lo que se concluye con la elección de 3 clústers.
+
+```{r pam clusts, echo=FALSE}
+clust5 <- pam(datos_num, k = 3)
+table(clust5$clustering)
+```
+
+La aplicación del método PAM da lugar a una distribución homogénea entre los clústers generados.
+
+```{r metodo de clustering, fig.width=8, fig.height=4, echo=FALSE}
+library(ggsci)
+colores = pal_npg("nrc")(3)
+par(mfrow = c(1,3))
+plot(silhouette(grupos1, midist), col=colores, border=NA, main = "WARD")
+plot(silhouette(clust4$cluster, midist), col=colores, border=NA, main = "K-MEDIAS")
+plot(silhouette(clust5$clustering, midist), col=colores, border=NA, main = "K-MEDOIDES")
+```
+
+Observando los coeficientes de Silhouette de los resultados, se elige el método de k-means con 3 clústers ya es el que tiene mayor Silhouette media y menor cantidad de observaciones con coeficientes negativos, es decir, mal clasificados.
+
+### Anexo 6: Análisis con Clase Cluster
+```{r clase, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=4}
+tab <- xtabs(~ Cluster + Clase, data = datos)
+
+mosaic(tab,
+       shade = TRUE,
+       labeling = labeling_border,
+       labeling_args = list(
+         rot_labels = c(top = 90),
+         gp_labels = gpar(fontsize = 10),
+         just_labels = c(top = "right"),
+         offset_labels = list(top = unit(2, "cm"))
+       ))
+```
+
+Dado que el valor p de la prueba de bondad de ajuste es menor a 0.05, se descarta la hipótesis de independencia entre las variables *Cluster* y *Clase*.
+En el clúster 1 no se observan grandes desviaciones, la mayoría se ajusta a lo esperado salvo los ratones trisómicos, con estimulación y sin medicina (*t-CS-s*) y los trisómicos, sin estimulación y con medicina (*t-SC-m*). Hay una ligera sobrerepresentación de los primeros y una ligera infrarrepresentación de los segundos. En el clúster 2 muestra una fuerte exceso representación de ratones neurotípicos, sin estimulación y con medicina (*c-SC-m*) y de trisómicos, sin estimulación y con medicina (*t-SC-m*). Además, hay una ligera sobrerrepresentación de ratones trisómicos, sin estimulación y sin medicina (*t-SC-s*). Por otra parte, hay infrarepresentación de 3 tipos de ratones, con estimulación (*CS*) y de los neurotípicos, sin estimulación y sin medicina (*c-SC-s*). En el clúster 3 destaca la sobrerepresentación de ratones neurotípicos, con estimulación y con medicina (*c-CS-m*) y de neurotípicos, con estimulación y sin medicina (*c-CS-s*). Por otra parte, hay infrarepresentación de 3 tipos de ratones sin estimulación, destacando entre estos tipos los neurotípicos, sin estimulación y con medicina (*c-SC-m*) ya que no hay ninguno.
+
+```{r observaciones clase, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=4}
+# Conteo con dplyr
+datos_counts <- datos %>%
+  group_by(Cluster, Clase) %>%    # agrupa por clúster y por clase
+  summarise(n = n(), .groups = "drop")  # cuenta cuántas observaciones hay en cada par
+
+# Visualización con ggplot2
+ggplot(datos_counts, aes(
+    x = factor(Cluster),    # clúster en X
+    y = n,                  # conteo en Y
+    fill = Clase             # nivel de la variable como color
+  )) +
+  geom_col(position = "dodge") +  # barras lado a lado por nivel
+  labs(
+    x = "Clúster",
+    y = "Número de observaciones",
+    fill = "Clases"
+  ) +
+  theme_minimal()
+```
+
+En el gráfico de barras del clúster 1, se observan que los resultados coinciden más o menos con los del gráfico de mosaico. Aunque hay sobrerepresentación de ratones trisómicos con estimulación y sin medicina (*t-CS-s*) este no es el tipo del que hay más cantidad. Los ratones de los que hay mayor cantidad son los neurotípicos sin estimulación y sin la medicina y también los ratones trisómicos con estimulación y con la medicina. De estos dos tipos hay más o menos la misma cantidad en el clúster 1 y son justo lo contrario. Aunque se podría deducir que la estimulación y la medicina surgen efecto sobre ratones trisómicos ya que están en el mismo grupo que los neurotípicos a los que no se les ha aplicado nada, las otras clases también tienen una cantidad similar, por lo que no es concluyente. Además, en este clúster destaca como el tercer tipo del que hay más ratones: los trisómicos sin estimulación y sin medicina (*t-SC-s*). Tanto en el gráfico de barras del clúster 2 como en el del clúster 3, los resultados coinciden con lo anteriormente observado con los gráficos de mosaico.
