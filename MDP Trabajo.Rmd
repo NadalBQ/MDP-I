@@ -1,0 +1,187 @@
+---
+title: "MDP Trabajo"
+author: "Isabelle"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(knitr)
+```
+
+# Estudio de Ratones de Laboratorio con Síndrome de Down y las Variables Moleculares que Influyen en su Aprendizaje.
+
+Grupo: A2-20
+Isabelle Archer, Nadal Bardisa Quintero, David Gilsanz Domínguez, Haoxiang Liu, Chenyao Lin 
+
+## Introducción
+
+Este trabajo aborda el análisis, entendimiento y desarrollo de conclusiones sobre los datos presentes en el fichero *Data_Cortex_Nuclear.xlsx*. Contiene valores de la concentración de ciertas proteínas en los cerebros de los ratones muestrados, además de características categóricas como el genotipo, la toma de un medicamento y su recuperación de capacidad de aprendizaje posterior.
+
+Comenzando por el primer objetivo del trabajo, encontrar una base de datos con la que trabajar, se llevó a cabo la búsqueda y selección de una base de datos apta para su análisis y trabajo posteriores. Esta base de datos debía cumplir ciertas condiciones: se recomendaba tener representación de 200 observaciones hasta 3000 observaciones, tener al menos 20 variables numéricas (discretas o continuas) o categóricas ordinales, y al menos una variable categórica nominal para facilitar luego los análisis y desarrollo de conclusiones.
+
+Finalmente se elige la base de datos sobre ratones con síndrome de Down y el efecto de cierto psicofármaco en el desarrollo de su capacidad de aprendizaje. Esta base de datos brinda 15 observaciones por ratón, contando con 72 sujetos distintos con representación equitativa en cuanto a recepción de fármaco o placebo y a su vez la presencia o falta del genotipo, para un total de 1080 observaciones. Contiene 82 variables en total: 77 variables numéricas continuas con la medida de las proteínas en los cerebros de los ratones, 3 variables binarias que representan el genotipo, el tratamiento, y el comportamiento, 1 variable categórica nominal que representa el conjunto de las variables binarias, y finalmente una variable identificador del ratón y el número de repetición de medida. 
+
+El objetivo del estudio es encontar y modelar las relaciones entre variables moleculares y experimentales en ratones de laboratorio para identificar patrones asociados a su genotipo, tratamiento y comportamiento. Con este estudio se puede identificar las proteínas criticales al aprendizaje de un ratón con síndrome de Down.
+
+Así pues de cara a analizar las observaciones de cada ratón se llevó a cabo un análisis exploratorio y pre-proceso de los datos obtenidos en el archivo de formato xlsx. 
+
+## Análisis Exploratorio
+
+En primer lugar se considera que un ratón tendrá aproximadamente los mismos valores para cada una de sus variables en sus 15 observaciones, por lo tanto cualquier observación que diste anormalmente de sus iguales será considerada error de medición.
+
+Para el tratamiento de estos se importa la librería **openxlsx** para leer el archivo y las librerías **dplyr** y **mice** para tratarlo y trabajar sobre él. Con ellas se pretende analizar los datos obtenidos y así poder trabajar con ellos asegurando su limpieza y utilidad para el caso planteado.
+
+```{r Librerías, echo=FALSE}
+library(openxlsx)
+library(dplyr)
+library(mice)
+```
+
+Se ha realizado una exploración de los datos a nivel visual y se detectaron y modificaron las variables que requieran una recodificación. Así pues se renombraron las variables *Genotype*, *Treatment*, *Behavior* y *Class* a *Genotipo*, *Tratamiento*, *Comportamiento* y *Clase*. Después, se transformaron las variables *Genotipo*, *Tratamiento* y *Comportamiento* a su formato binario numérico (convirtiendo los valores de estas variables a un formato entendible para las herramientas que se utilizan), indicando con valor 0 el valor de *Genotipo* "control" y 1 el valor de *Genotipo* "Ts65Dn", con 0 el valor de *Tratamiento* "Saline" y con 1 el valor de *Tratamiento* "Memantine" y con 0 el valor de *Comportamiento* "S/C" y con 1 el valor de *Comportamiento* "C/S".
+
+```{r Recodificación, echo=FALSE}
+
+ratones = read.xlsx("Data_Cortex_Nuclear.xlsx", sheet=1)
+
+ratones <- ratones %>%
+  rename(
+    "Genotipo" = Genotype,
+    "Tratamiento" = Treatment,
+    "Comportamiento" = Behavior,
+    "Clase" = class
+  )
+
+colnames(ratones)
+
+colEncodings <- list(
+  "Genotipo" = c("Control" = 0, "Ts65Dn" = 1),
+  "Tratamiento" = c("Saline" = 0, "Memantine" = 1),
+  "Comportamiento" = c("S/C" = 0, "C/S" = 1)
+)
+
+for (colName in names(colEncodings)) {
+  
+  encoding <- colEncodings[[colName]]
+  
+  encodedValues <- encoding[ratones[[colName]]]
+  
+  ratones[[colName]] <- as.numeric(encodedValues)
+}
+
+```
+
+Una vez realizadas las recodificaciones necesarias, se procedió a la limpieza del conjunto de datos. En primer lugar, se resumieron estadísticamente las variables numéricas, excluyendo las variables categóricas renombradas y recodificadas previamente. A continuación, se calculó la desviación típica, la media y el coeficiente de variación de cada variable para tener una primera idea de su dispersión relativa. Esto permitio detectar posibles inconsistencias o valores con alta variabilidad.
+
+Seguidamente, se analizó la presencia de valores faltantes en cada variable. Se calculó tanto el número absoluto como el porcentaje de valores ausentes por columna, y se construyó una tabla resumen. A partir de ella, se eliminaron del conjunto de datos aquellas variables que presentan un porcentaje igual o superior al 20% de valores faltantes. Se recalcularon las métricas para comprobar el estado actualizado de los datos.
+
+Posteriormente, se realizó el mismo análisis pero a nivel de fila, identificando los individuos con un porcentaje elevado de datos faltantes. Se mostró un resumen estadístico del número de valores ausentes por individuo, así como un gráfico de barras con la distribución porcentual de los casos. Aunque se identificaron las filas con más de un 20% de datos ausentes, en este bloque no se eliminaron.
+
+Para estudiar la estructura de los valores ausentes, se utilizó la función *md.pattern** del paquete **mice**, y se extrajeron únicamente las columnas con valores faltantes. Sobre estas variables, se aplicó un proceso de imputación múltiple utilizando el método por defecto del paquete, generando cinco datasets imputados a partir de una semilla fija para garantizar la reproducibilidad. Se extrajeron gráficos tipo stripplot para evaluar visualmente los resultados de la imputación en distintas variables seleccionadas, y se completaron los valores faltantes del conjunto original con los imputados de la segunda iteración. Finalmente, se compararon visualmente los valores antes y después de la imputación mediante diagramas de caja, y el nuevo conjunto de datos limpio se guardó en un archivo Excel para su uso posterior.
+
+```{r Imputación, echo=FALSE}
+
+summary(ratones[,2:(ncol(ratones)-4)])
+
+mySD = apply(ratones[,2:(ncol(ratones)-4)], 2, sd,na.rm=TRUE)
+myMU = colMeans(ratones[,2:(ncol(ratones)-4)], na.rm = TRUE)
+myCV = mySD/myMU
+sort(myCV)
+
+numNA = apply(ratones, 2, function(x) sum(is.na(x)))
+percNA = round(100*apply(ratones, 2, function(x) mean(is.na(x))), 2)
+tablaNAcol = data.frame("Variable" = colnames(ratones), numNA, percNA)
+
+colNA <- which(tablaNAcol$percNA >= 20 )
+ratones <- ratones[, -colNA]
+
+numNA = apply(ratones, 2, function(x) sum(is.na(x)))
+percNA = round(100*apply(ratones, 2, function(x) mean(is.na(x))), 2)
+tablaNAcol = data.frame("Variable" = colnames(ratones), numNA, percNA)
+
+numNA = apply(ratones, 1, function(x) sum(is.na(x)))
+percNA = round(100*apply(ratones, 1, function(x) mean(is.na(x))), 2)
+tablaNArow = data.frame(numNA, percNA)
+
+summary(tablaNArow$numNA)
+
+barplot(table(tablaNArow$percNA), xlab = "% Valores faltantes", ylab = "Número de casos", main = "Ratones")
+
+rowNA <- which(tablaNArow$percNA >= 20 )
+
+patrones = md.pattern(ratones, rotate.names = FALSE)
+
+ratonesNA <- ratones[,which(tablaNAcol$percNA > 0)]
+
+ratonesImp = mice(ratonesNA, seed = 123, m = 5, print = FALSE, method = NULL)
+
+p <- mice::stripplot(ratonesImp)
+
+tablaNAcol[tablaNAcol$percNA > 1,]
+
+colSelect <- c("ELK_N","Bcatenin_N","BAD_N","pCFOS_N","H3AcK18_N","EGR1_N")
+
+for (i in colSelect){
+  print(p[which(colnames(ratonesNA) == i)])
+}
+
+ratonesImp <- complete(ratonesImp, 2)
+ratones[, colnames(ratonesImp)] <- ratonesImp
+
+par(mfrow = c(2,4))
+for (i in colSelect) {
+  boxplot(list("antes" = ratonesNA[,which(colnames(ratonesNA) == i)], "después" = ratonesImp[,which(colnames(ratonesNA) == i)]), 
+          col = heat.colors(2), main = colnames(ratonesNA)[i], las = 2)
+}
+
+write.xlsx(ratones, "RatonesLimpios.xlsx", overwrite = TRUE)
+```
+
+Al final del pre-proceso y la limpieza de la base de datos, se obtuvo una base de datos sin valores faltantes y con las variables recodificadas adecuadamente para el análisis posterior.
+
+## Análisis PCA
+
+- Aplicación del método
+– Resultados numéricos y gráficos
+– Discusión de los resultados y conclusiones
+
+## Análisis Clustering
+
+- Aplicación del método
+– Resultados numéricos y gráficos
+– Discusión de los resultados y conclusiones
+
+## Análisis PLS
+
+- Aplicación del método
+– Resultados numéricos y gráficos
+– Discusión de los resultados y conclusiones
+
+## Métodos Opcionales
+
+Algunos otros métodos que se podrían haber aplicado son: análisis factorial de correspondencias (simple y múltiple), reglas de asociación, y análisis discriminante. Se va a explicar las ventajas e inconvenientes de aplicar estos métodos a la base de datos elegida.
+
+### Análisis factorial de correspondencias (simple y múltiple):
+
+El análisis factorial de correspondencias (AFC) es un método descriptivo no supervisado que analiza las relaciones entre **variables categóricas**. El AFC simple se aplica a una tabla de contingencia cruzada de dos variables categóricas mientras que el AFC múltiple se aplica a una base de datos compuesta por múltiples variables categóricas. Una ventaja de este método es que permite visualizar asociaciones entre distintos grupos de ratones según sus características categóricas, reduciendo la dimensionalidad del espacio. Algo inconveniente es la necesidad de convertir las variables numéricas a categóricas si quiere incluirlas en el análisis, discretizándolas. En este caso, la base de datos de los ratones tienen cuatro variables categóricas: *Genotipo*, *Tratamiento*, *Comportamiento* y *Clase*, y se podría aplicar un AFC múltiple a estas variables.
+
+### Reglas de asociación:
+
+Las reglas de asociación son un método no supervisado para encontrar patrones frecuentes en la base de datos y permite conocer el comportamiento general de los individuos. Es necesario trabajar con **variables binarios**, entonces debería binarizar las variables numéricas de una base de datos, lo que puede reducir la información o crear demasiadas variables, introduciendo ruido. En esta base de datos, se podría binarizar las variables numéricas, convertiéndolas en transacciones, y aplicar el algoritmo apriori con soporte y confianza.
+
+### Análisis discriminante:
+
+El análisis discriminate es un método supervisado para clasificar un individuo en su clase más cercana, buscando un conjunto de reglas discriminantes. Permite estudiar la contribución de cada variable, lo que ayuda en la explicación y significación. Algo inconveniente es que supone normalidad y homogeneidad de las variables para aplicar el método. Además puede ser sensible a valores atípicos. En este caso, se podría aplicar para predecir la *Clase* de un ratón en función de sus medidas de las proteínas. 
+
+
+## Conclusiones del Estudio
+
+## Anexos
+
+Resultados NO necesarios para la comprensión del trabajo. Se deben explicar
+brevemente en el apartado correspondiente del documento principal e incluir
+el detalle en Anexos para su consulta (indicando Anexo 1, Anexo 2, etc. En
+dicho documento principal), de forma que no se consuma el número de
+páginas permitidas para el trabajo.
+
