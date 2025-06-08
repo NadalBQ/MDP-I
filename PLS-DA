@@ -1,0 +1,214 @@
+---
+title: "MDP Trabajo"
+author: "Isabelle"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+# PLS
+
+## Lectura y preparación de los datos
+
+Se comienza leyendo el fichero RatonesLimpios.xlsx con la librería readxl. La variable Genotipo, que inicialmente es numérica, se transforma a factor para poder usarse como variable respuesta categórica en un modelo PLS-DA. Después, se eliminan las columnas no predictoras (como Tratamiento, Comportamiento, Clase) para construir la matriz X de predictores y el vector y con la variable respuesta.
+
+```{r}
+library(knitr)
+#knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+#install.packages("BiocManager")
+#BiocManager::install("ropls")
+library(ropls)
+#https://bioconductor.org/packages/release/bioc/vignettes/ropls/inst/doc/ropls-vignette.html
+library(viridis)
+library(dplyr)
+library(ggplot2)
+library(ggrepel)
+library(readxl)
+library(caret)
+
+```
+
+```{r}
+ratones = read_excel("RatonesLimpios.xlsx")
+
+# Como genotipo es num pues hay que pasarlo a factor
+
+ratones$Genotipo = factor(ratones$Genotipo)
+
+# Eliminamos las variables que no van a ser las predictoras (las ult. cols)
+
+X = subset(ratones, select = -c(Genotipo, Tratamiento, Comportamiento, Clase))
+y = ratones$Genotipo
+
+
+
+
+```
+
+## División en entrenamiento y test
+
+  Usando la función createDataPartition del paquete caret, se divide el conjunto de datos en un 80% para entrenamiento (Xtrain, ytrain) y un 20% para test (Xtest, ytest). También se elimina la primera columna de Xtrain y Xtest, ya que contiene identificadores de ratones (no predictivos).
+```{r}
+set.seed(100)
+
+trainFilas = createDataPartition(y, p = 0.8, list = FALSE)
+
+Xtrain = X[trainFilas, ]
+Xtest = X[-trainFilas, ]
+ytrain = y[trainFilas]
+ytest = y[-trainFilas]
+
+#Quitar pimera col
+
+Xtrain = Xtrain[, -1]
+Xtest = Xtest[, -1]
+
+
+
+```
+## Estimación del modelo PLS-DA
+
+Se aplica la función opls del paquete ropls para estimar un modelo PLS-DA usando escalado estándar y validación cruzada 10-fold, sin fijar el número de componentes (lo estima automáticamente).
+
+```{r}
+
+
+
+myplsda = opls(x = Xtrain, y = ytrain, predI = NA, crossvalI = 10, 
+               scaleC = "standard", fig.pdfC = "none")
+
+```
+
+ El resultado obtenido muestra que el modelo explica el 79% de la variabilidad de la variable Genotipo, tal como indica el valor acumulado de R2Y. Por otro lado, el valor de Q2 acumulado es 0.762, lo que refleja una capacidad predictiva sólida, ya que se encuentra claramente por encima del umbral habitual de 0.5. El modelo estima que el número óptimo de componentes necesarios para representar adecuadamente los datos es ocho. Además, los valores de pR2Y y pQ2 son ambos iguales a 0.05, lo que indica que el modelo es estadísticamente significativo según el test de permutación realizado.
+ 
+ 
+## Visualización de R2Y y Q2
+
+Se fuerza el modelo a usar hasta 10 componentes (predI = maxNC) y se grafica la evolución de R2Y y Q2 para evaluar si más componentes mejoran el rendimiento.
+ 
+```{r}
+maxNC = 10
+myplsda = opls(x = Xtrain, y = ytrain, predI = maxNC, crossvalI = 10, 
+               scaleC = "standard", fig.pdfC = "none")
+
+plot(1:maxNC, myplsda@modelDF$`R2Y(cum)`, type = "o", pch = 16, col = "blue3",
+     lwd = 2, xlab = "Componentes", ylab = "", ylim = c(0.4,0.8),
+     main = "PLS-DA: Síndrome de Down")
+lines(1:maxNC, myplsda@modelDF$`Q2(cum)`, type = "o", pch = 16, col = "red3",
+      lwd = 2)
+abline(h = 0.5, col = "red3", lty = 2)
+legend("bottomleft", c("R2Y", "Q2"), lwd = 2, col = c("blue3", "red3"), bty = "n")
+
+```
+ En el gráfico resultante se observa que tanto R2Y como Q2 aumentan hasta el componente 10, donde se estabilizan. Esto confirma que 10 componentes es una elección adecuada, que coincide con los recomendados por el modelo.
+ 
+ 
+## Ajuste con 2 componentes y gráficos de diagnóstico
+
+Para representar visualmente los resultados, se vuelve a ajustar el modelo con solo 10 componentes (suficientes para representar datos en 2D) y se generan automáticamente los siguientes gráficos:
+
+
+
+```{r}
+library(ropls)
+
+myplsda = opls(x = Xtrain, y = ytrain, 
+               predI = 10,              # usar solo 10 componentes
+               crossvalI = 10,         # validación cruzada 10-fold
+               permI = 20,             # 20 permutaciones para test de significancia
+               scaleC = "standard")    # escalado automático
+
+```
+ Tras el ajuste del modelo con ocho componentes, se generan automáticamente distintos gráficos de diagnóstico que permiten evaluar la calidad del modelo obtenido. El gráfico de barras de R2Y y Q2Y por componente muestra cómo ambos valores aumentan progresivamente hasta estabilizarse en el componente 8, lo que refuerza que dicha elección es adecuada. R2Y alcanza un valor de 0.79, lo que indica que el modelo explica un 79% de la variabilidad de la variable respuesta, y Q2 se sitúa en 0.762, lo cual evidencia una buena capacidad predictiva.
+
+El test de permutación confirma que el modelo es estadísticamente significativo, con valores de pR2Y y pQ2 iguales a 0.05. Esto significa que la probabilidad de obtener un modelo igual de bueno por azar es baja, por lo que se puede confiar en la validez del modelo ajustado.
+
+ Por otro lado, el gráfico de scores (PLS-DA) proyecta a los individuos sobre los dos primeros componentes principales. En él se observa una clara separación entre los grupos Down y Control, lo que indica que el modelo es capaz de discriminar de manera efectiva entre ambos genotipos a partir de las variables de expresión incluidas.
+
+En conclusión, el análisis PLS-DA aplicado a los datos de los ratones muestra que el modelo tiene un buen ajuste y una alta capacidad predictiva. La clara separación entre grupos sugiere que las variables seleccionadas contienen información relevante para distinguir el genotipo. Aunque el número óptimo de componentes según el modelo es ocho, con solo dos ya se obtiene una visualización clara y útil para la interpretación, especialmente en términos de representación en dos dimensiones.
+
+
+
+# Resumen: 
+
+Se ha aplicado un modelo PLS-DA (Partial Least Squares Discriminant Analysis) para clasificar a los ratones según su genotipo (síndrome de Down o Control) a partir de variables de expresión. Esta técnica permite detectar estructuras latentes que explican la separación entre grupos y evaluar su capacidad predictiva mediante validación cruzada.
+
+Los resultados del modelo (ver Anexo) muestran que se explica el 80% de la variabilidad de la variable Genotipo (R2Y = 0.80) y que la capacidad predictiva alcanza un valor elevado (Q2 = 0.76). El error medio de estimación es bajo (RMSEE = 0.23), y el test de permutación indica que el modelo es estadísticamente significativo (pR2Y = 0.05, pQ2 = 0.05). El modelo estima que el número óptimo de componentes es 8.
+
+   En el siguiente gráfico, que representa la evolución de R2Y y Q2 en función del número de componentes, se observa que ambos valores aumentan hasta estabilizarse en el componente 10, lo que justifica su selección como número óptimo:
+```{r}
+ratones = read_excel("RatonesLimpios.xlsx")
+
+# Como genotipo es num pues hay que pasarlo a factor
+
+ratones$Genotipo = factor(ratones$Genotipo)
+
+# Eliminamos las variables que no van a ser las predictoras (las ult. cols)
+
+X = subset(ratones, select = -c(Genotipo, Tratamiento, Comportamiento, Clase))
+y = ratones$Genotipo
+
+set.seed(100)
+
+trainFilas = createDataPartition(y, p = 0.8, list = FALSE)
+
+Xtrain = X[trainFilas, ]
+Xtest = X[-trainFilas, ]
+ytrain = y[trainFilas]
+ytest = y[-trainFilas]
+
+#Quitar pimera col
+
+Xtrain = Xtrain[, -1]
+Xtest = Xtest[, -1]
+
+
+
+
+maxNC = 10
+myplsda = opls(x = Xtrain, y = ytrain, predI = maxNC, crossvalI = 10, 
+               scaleC = "standard", fig.pdfC = "none")
+
+plot(1:maxNC, myplsda@modelDF$`R2Y(cum)`, type = "o", pch = 16, col = "blue3",
+     lwd = 2, xlab = "Componentes", ylab = "", ylim = c(0.4,0.8),
+     main = "PLS-DA: Síndrome de Down")
+lines(1:maxNC, myplsda@modelDF$`Q2(cum)`, type = "o", pch = 16, col = "red3", lwd = 2)
+abline(h = 0.5, col = "red3", lty = 2)
+legend("bottomleft", c("R2Y", "Q2"), lwd = 2, col = c("blue3", "red3"), bty = "n")
+
+```
+
+  Para facilitar la interpretación visual, se ajustó de nuevo el modelo utilizando únicamente 10 componentes. Esta decisión se basa en que dos componentes son suficientes para representar los datos en un espacio bidimensional, lo cual permite analizar gráficamente la separación entre grupos. A continuación, se muestra el código que genera los gráficos de diagnóstico automáticos incluidos en el Anexo:
+```{r}
+myplsda = opls(x = Xtrain, y = ytrain,
+               predI = 10, crossvalI = 10,
+               permI = 20, scaleC = "standard")
+
+```
+Los gráficos generados incluyen:
+
+-Un gráfico de barras de R2Y y Q2 por componente, que refuerza la calidad explicativa y predictiva del modelo.
+
+-Un test de permutación que confirma su validez estadística.
+
+-Un diagrama de observaciones (observation diagnostics) para detectar posibles valores atípicos.
+
+-Un gráfico de scores (PLS-DA) que muestra una clara separación entre los grupos Down y Control.
+
+En conclusión, el modelo ajustado mediante PLS-DA presenta un ajuste robusto y un buen rendimiento predictivo. Se observa que las variables de expresión incluidas en el análisis permiten distinguir claramente entre los dos genotipos. Aunque el modelo estima como óptimos ocho componentes, la representación con dos componentes ya resulta suficiente para visualizar de forma clara la estructura de los datos.
+
+
+
+
+
+
+
+
+
+
+
