@@ -6,17 +6,19 @@ output: word_document
 ---
 # Introducción:
 
-Comenzando por el primer objetivo del trabajo, encontrar una base de datos con la que trabajar, el equipo llevó a cabo la búsqueda y selección de una base de datos apta para su análisis y trabajo posteriores. Esta base de datos debía cumplir ciertas condiciones, debía tener datos faltantes y anómalos de manera que la base de datos perfecta sería aquella que nos permitiese trabajar esos fallos. Se recomendaba tener representación de cerca de 100 individuos sin quedar muy por debajo ni demasiado por encima para facilitar luego los análisis y desarrollo de conclusiones.
+Este trabajo aborda el análisis, entendimiento y desarrollo de conclusiones sobre los datos presentes en el fichero Data_Cortex_Nuclear.xlsx que contiene valores para la concentración de ciertas proteínas en los cerebros de los ratones muestrados además de características categóricas como el genotipo, la toma de un medicamento y su recuperación de capacidad de aprendizaje posterior.
 
-Finalmente nos decantamos por la base de datos sobre ratones con síndrome de Down y el efecto de cierto psicofármaco en el desarrollo de su capacidad de aprendizaje. La base de datos, además de contener variables categóricas binarias como el genotipo, la recepción del fármaco y su aptitud final, mostraba para cada ratón casi 80 variables que miden la proporción de ciertas proteínas en el cerebro del ratón examinado.
+Comenzando por el primer objetivo del trabajo, encontrar una base de datos con la que trabajar, se llevó a cabo la búsqueda y selección de una base de datos apta para su análisis y trabajo posteriores. Esta base de datos debía cumplir ciertas condiciones, debía tener datos faltantes y anómalos de manera que la base de datos perfecta sería aquella que permitiese trabajar esos fallos. Se recomendaba tener representación de cerca de 100 individuos sin quedar muy por debajo ni demasiado por encima para facilitar luego los análisis y desarrollo de conclusiones.
 
-Esta base de datos nos brindaba 15 observaciones por ratón, contando con 72 sujetos distintos con representación equitativa en cuanto a recepción de fármaco o placebo y a su vez la presencia o falta del genotipo.
+Finalmente se elige la base de datos sobre ratones con síndrome de Down y el efecto de cierto psicofármaco en el desarrollo de su capacidad de aprendizaje. La base de datos, además de contener variables categóricas binarias como el genotipo, la recepción del fármaco y su aptitud final, mostraba para cada ratón casi 80 variables que miden la proporción de ciertas proteínas en el cerebro del ratón examinado.
 
-En primer lugar consideramos que un ratón tendrá aproximadamente los mismos valores para cada una de sus variables en sus 15 observaciones con que cualquier observación que diste anormalmente de sus iguales será considerada error de medición.
+Esta base de datos brinda 15 observaciones por ratón, contando con 72 sujetos distintos con representación equitativa en cuanto a recepción de fármaco o placebo y a su vez la presencia o falta del genotipo.
+
+En primer lugar se considera que un ratón tendrá aproximadamente los mismos valores para cada una de sus variables en sus 15 observaciones con que cualquier observación que diste anormalmente de sus iguales será considerada error de medición.
 
 Así pues de cara a analizar las observaciones de cada ratón se lleva a cabo un análisis exploratorio y pre proceso de los datos obtenidos en un archivo de formato xlsx.
 
-Para el tratamiento de estos se importa la librería de R xlsx para leer el archivo y las librerías dplyr y mice para tratarlo y trabajar sobre él. Con ellas se pretende analizar los datos obtenidos y así poder trabajar con ellos asegurándonos su limpieza y utilidad para el caso planteado.
+Para el tratamiento de estos se importa la librería de R xlsx para leer el archivo y las librerías dplyr y mice para tratarlo y trabajar sobre él. Con ellas se pretende analizar los datos obtenidos y así poder trabajar con ellos asegurando su limpieza y utilidad para el caso planteado.
 
 ```{r Librerías}
 library(openxlsx)
@@ -24,7 +26,7 @@ library(dplyr)
 library(mice)
 ```
 
-En primer lugar se realiza una exploración de los datos a nivel visual se detectan y se modifican las variables que requieran una recodificación. Así pues renombramos las variables Genotype, Treatment, Behavior y Class a Genotipo, Tratamiento, Comportamiento y Clase; transformamos las variables Genotipo, Tratamiento y Comportamiento a su formato binario numérico (convirtiendo los valores de estas variables a un formato entendible para las herramientas que utilizamos), indicando con valor 0 el valor de Genotipo "control" y 1 el valor de Genotipo "Ts65Dn", con 0 el valor de Tratamiento "Saline" y con 1 el valor de Tratamiento "Memantine" y con 0 el valor de Comportamiento "S/C" y con 1 el valor de Comportamiento "C/S".
+En primer lugar se realiza una exploración de los datos a nivel visual se detectan y modifican las variables que requieran una recodificación. Así pues se renombran las variables Genotype, Treatment, Behavior y Class a Genotipo, Tratamiento, Comportamiento y Clase; se transforman las variables Genotipo, Tratamiento y Comportamiento a su formato binario numérico (convirtiendo los valores de estas variables a un formato entendible para las herramientas que se utilizan), indicando con valor 0 el valor de Genotipo "control" y 1 el valor de Genotipo "Ts65Dn", con 0 el valor de Tratamiento "Saline" y con 1 el valor de Tratamiento "Memantine" y con 0 el valor de Comportamiento "S/C" y con 1 el valor de Comportamiento "C/S".
 
 ```{r Recodificación}
 
