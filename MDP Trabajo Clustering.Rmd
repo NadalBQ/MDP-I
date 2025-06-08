@@ -8,12 +8,14 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
-```{r librerias clustering}
+```{r librerias clustering, message=FALSE}
 library(knitr)
 library(readxl)
+library(dplyr)
+library(ggplot2)
 library(cluster)
 library(FactoMineR)
 library(factoextra)
@@ -22,52 +24,34 @@ library(clValid)
 library(grid)
 library(gridExtra)
 ```
-# Clustering de ratones
 
-## Datos y descripción
+# Clustering de ratones
 
 datos = read_excel("RatonesLimpios.xlsx", col_names = TRUE)
 datos = as.data.frame(datos)
-
-newID = sapply(datos$MouseID, function (x) strsplit(x, "_")[[1]][1])
-head(datos, 3)
-
-
-
 
 descRatones = data.frame("variable" = colnames(datos),
                       "tipo" = c("categorical", rep("numerical", 75),
                                  rep("binary", 3), "categorical"), stringsAsFactors = FALSE)
 rownames(descRatones) = descRatones$variable
-descRatones
+
 
 
 Ejecutar todo "MDP Trabajo.Rmd" para la variable datos sin anómalos
 
-# Centrar los datos
 
-```{r centrar}
-
-# Apply centering ONLY to the final list of numeric columns
-datos[,2:76] <- scale(datos[,2:76], center = TRUE, scale = FALSE)
-
-# View first 3 rows
-head(datos, 3)
-
-```
 
 ## Selección de variables a utilizar y preparación de datos
 El objetivo es realizar un análisis de agrupamiento de ratones con niveles de expresión de proteínas similares. Para ello, se han seleccionado las variables de proteínas para realizar el clustering.
 
 ```{r}
 datos_num = datos[,descRatones$variable[descRatones$tipo == "numerical"]]
-head(datos_num)
 ```
 
 ## Medida de distancia
-Se utilizará la distancia euclídea como medida de distancia, porque se desea agrupar ratones con valores de expresión de proteínas similares y no con perfiles similares de proteínas.
+Se utilizará la distancia euclídea como medida de distancia, porque se desea agrupar ratones con valores de expresión de proteínas similares y no con perfiles similares de proteínas. No se ha realizado ni un centrado ni un escalado de los datos porque las variables están en las mismas unidades.
 
-```{r dist}
+```{r dist, fig.width=8, fig.height=4}
 midist <- get_dist(datos_num, stand = FALSE, method = "euclidean")
 fviz_dist(midist, show_labels = TRUE, lab_size = 0.3,
           gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
@@ -112,15 +96,12 @@ grid.arrange(p1, p2, nrow = 1)
 
 Los resultados para el coeficiente Silhouette indican que el número óptimo de clusters es 2 clusters. Si observa la variabilidad intra-cluster, aún está bastante alta. Si elige el segundo óptimo, 3 clusters, la variabilidad intra-cluster ya baja bastante y, además, parece el punto en el que se crea el codo. Si coge el número de clusters como 4, baja la variabilidad intra-cluster pero también baja bastante el coeficiente Silhouette. Por tanto, se fijará el número de clusters en 3.
 
-Se crea a continuación los 3 clusters con el modelo jerárquico y el método de Ward. Dado que el número de observaciones lo permite, se generará el dendrograma para visualizar la agrupación de los ratones.
+Se crea a continuación los 3 clusters con el modelo jerárquico y el método de Ward. No se generará el dendrograma debido a que el número de observaciones es elevado y no se podría observar claramente qué observaciones hay en cada clúster.
 
-```{r ward, fig.width=8, fig.height=6, warning=FALSE}
+```{r ward, fig.width=8, fig.height=6}
 clust1 <- hclust(midist, method="ward.D2")
 grupos1 <- cutree(clust1, k=3)
 table(grupos1)
-fviz_dend(clust1, k = 3,
-          cex = 0.5, color_labels_by_k = TRUE,
-          rect = TRUE) # dibujar rectángulos
 ```
 
 Se observan dos clústers que tienen más o menos la misma cantidad de observaciones y otro clúster que tiene más observaciones que los otros dos.
@@ -141,13 +122,9 @@ grid.arrange(p1, p2, nrow = 1)
 
 En la suma de cuadrados intra-cluster, se observan 3 codos. El primero codo es el 2 y coincide con el número óptimo del coeficiente de Silhouette. Sin embargo, la suma de cuadrados intra-cluster es demasiado elevada para 2 clusters. El segundo codo es el 4 bajando significativamente la suma de cuadrados intra-cluster y coincidiendo con el segundo número óptimo del coeficiente de Silhouette. Y, por último, el tercer codo es el 7 bajando aún más la suma de cuadrados intra-cluster y coincidiendo con el tercer número óptimo del coeficiente de Silhouette, el cual es prácticamente igual que el segundo óptimo. Sin embargo, teniendo en cuenta que hay 72 ratones, cada uno con 15 observaciones, 7 clústers es demasiado, por lo tanto se eligirá 4 clústers.
 
-```{r media, fig.width=8, fig.height=6, warning=FALSE}
+```{r media, fig.width=8, fig.height=6}
 clust2 <- hclust(midist, method="average")
 grupos2 = cutree(clust2, k = 4)
-fviz_dend(clust2, k = 4,
-          cex = 0.5,
-          color_labels_by_k = TRUE, # colorear etiquetas por grupo
-          rect = TRUE) # dibujar rectángulos
 table(grupos2)
 ```
 
@@ -203,7 +180,7 @@ Con el método de k-means, se observa una distribución equilibrada entre los cl
 
 
 ### PAM ((Partitioning Around Medoids)
-```{r}
+```{r, fig.width=8, fig.height=4}
 p1 = fviz_nbclust(x = datos_num, FUNcluster = pam, method = "silhouette", 
              k.max = 10, verbose = FALSE) +
   labs(title = "Numero optimo de clusters")
@@ -224,7 +201,7 @@ La aplicación del método PAM da lugar a una distribución homogénea entre los
 
 
 ## Selección del método de clustering
-```{r}
+```{r, fig.width=8, fig.height=4}
 library(ggsci)
 colores = pal_npg("nrc")(3)
 par(mfrow = c(1,3))
@@ -261,6 +238,7 @@ Por otra parte, en el clúster 3 el residuo de Pearson para ratones neurotípico
 ```{r}
 mosaic(~ Cluster + Tratamiento, data = datos, shade = TRUE)
 ```
+
 El p-valor de la prueba de bondad de ajuste resulta ser inferior a 0.05, por lo que se rechaza la hipótesis de independencia entre "Cluster" y "Tratamiento".
 
 En el clúster 1 se observa un residuo de Pearson entre +2 y +4 para los ratones que no tomaron la medicina (Tratamiento = 0), lo que indica una mayor presencia de estos ratones en comparación con los que sí que recibieron el tratamiento.
@@ -295,13 +273,12 @@ mosaic(tab,
 ```
 
 Dado que el valor p de la prueba de bondad de ajuste es menor a 0.05, se descarta la hipótesis de independencia entre las variables 'Cluster' y 'Clase'.
-En el clúster 1 no se observan grandes desviaciones, la mayoría se ajusta a lo esperado salvo los ratones trisómicos con estimulación y sin medicina (t-CS-s) y los trisómicos sin estimulación y con medicina (t-SC-m). Hay una ligera sobrerrepresentación de los primeros y una ligera infrarrepresentación de los segundos.
-En el clúster 2 muestra una fuerte sobrerrepresentación de ratones neurotípicos sin estimulación y con medicina (c-SC-m) y de trisómicos sin estimulación y con medicina(t-SC-m). Además, hay una ligera sobrerrepresentación de ratones trisómicos sin estimulación y sin medicina (t-SC-s). Por otra parte, hay infrarrepresentación de 3 tipos de ratones con estimulación (CS) y de los neurotípicos sin estimulación y sin medicina(c-SC-s).
-En el clúster 3 destaca la sobrerrepresentación de ratones neurotípicos con estimulación y con medicina (c-CS-m) y de neurotípicos con estimulación y sin medicina (c-CS-s). Por otra parte, hay infrarrepresentación de 3 tipos de ratones sin estimulación, destacando entre estos tipos los neurotípicos sin estimulación y con medicina (c-SC-m) ya que no hay ninguno.
+En el clúster 1 no se observan grandes desviaciones, la mayoría se ajusta a lo esperado salvo los ratones trisómicos, con estimulación y sin medicina (t-CS-s) y los trisómicos, sin estimulación y con medicina (t-SC-m). Hay una ligera sobrerrepresentación de los primeros y una ligera infrarrepresentación de los segundos.
+En el clúster 2 muestra una fuerte sobrerrepresentación de ratones neurotípicos, sin estimulación y con medicina (c-SC-m) y de trisómicos, sin estimulación y con medicina(t-SC-m). Además, hay una ligera sobrerrepresentación de ratones trisómicos, sin estimulación y sin medicina (t-SC-s). Por otra parte, hay infrarrepresentación de 3 tipos de ratones, con estimulación (CS) y de los neurotípicos, sin estimulación y sin medicina(c-SC-s).
+En el clúster 3 destaca la sobrerrepresentación de ratones neurotípicos, con estimulación y con medicina (c-CS-m) y de neurotípicos, con estimulación y sin medicina (c-CS-s). Por otra parte, hay infrarrepresentación de 3 tipos de ratones sin estimulación, destacando entre estos tipos los neurotípicos, sin estimulación y con medicina (c-SC-m) ya que no hay ninguno.
 
 ```{r}
-library(dplyr)
-library(ggplot2)
+
 
 # Conteo con dplyr
 datos_counts <- datos %>%
@@ -324,7 +301,7 @@ ggplot(datos_counts, aes(
 
 ```
 
-En el gráfico de barras del clúster 1, se observan que los resultados coinciden más o menos con los del gráfico de mosaico. Aunque hay sobrerrepresentación de ratones trisómicos con estimulación y sin medicina (t-CS-s) este no es tipo del que hay más cantidad. Los ratones de los que hay mayor cantidad son los neurotípicos sin estimulación y sin la medicina y también los ratones trisómicos, con estimulación y con la medicina. De estos dos tipos hay más o menos la misma cantidad en el clúster 1 y son justo lo contrario. Aunque se podría deducir que la estimulación y la medicina surgen efecto sobre ratones trisómicos ya que están en el mismo grupo que los neurotípicos a los que no se les ha aplicado nada, las otras clases también tienen una cantidad similar, por lo que no es concluyente. Además, en este clúster destaca como el tercer tipo del que hay más ratones, los trisómicos sin estimulación y sin medicina (t-SC-s).
+En el gráfico de barras del clúster 1, se observan que los resultados coinciden más o menos con los del gráfico de mosaico. Aunque hay sobrerrepresentación de ratones, trisómicos con estimulación y sin medicina (t-CS-s) este no es tipo del que hay más cantidad. Los ratones de los que hay mayor cantidad son los neurotípicos, sin estimulación y sin la medicina y también los ratones trisómicos, con estimulación y con la medicina. De estos dos tipos hay más o menos la misma cantidad en el clúster 1 y son justo lo contrario. Aunque se podría deducir que la estimulación y la medicina surgen efecto sobre ratones trisómicos ya que están en el mismo grupo que los neurotípicos a los que no se les ha aplicado nada, las otras clases también tienen una cantidad similar, por lo que no es concluyente. Además, en este clúster destaca como el tercer tipo del que hay más ratones, los trisómicos, sin estimulación y sin medicina (t-SC-s).
 Tanto en el gráfico de barras del clúster 2 como en el del clúster 3, los resultados coinciden con lo anteriormente observado con los gráficos de mosaico.
 
 En cada clúster destacan unos tipos de ratones:
@@ -347,11 +324,11 @@ descRatonesClust = data.frame("variable" = colnames(datos),
                       "tipo" = c(rep("categorical",1),rep("numerical", 75),
                                  rep("binary", 3), rep("categorical", 3)), stringsAsFactors = FALSE)
 rownames(descRatonesClust) = descRatonesClust$variable
-descRatonesClust
 ```
 
 
 ```{r}
+K_sin = 4
 res.pca_clust = PCA(datos, scale.unit = FALSE, graph = FALSE, ncp = K_sin, 
               quali.sup = which(descRatonesClust$tipo == "categorical"),
               quanti.sup = which(descRatonesClust$tipo == "binary"))
